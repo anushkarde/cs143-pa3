@@ -94,7 +94,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     Class_ current = classes->nth(i);
     Symbol name = current->get_name();
     if (classNameMap.find(name) != classNameMap.end()) {      // if class is already declared, throw error
-      semant_error(current);        // ask about declaring error here
+      semant_error(current) << "Class " << name->get_string() << " was previously defined." << endl;        // ask about declaring error here
     }
     classNameMap[name] = current;
   }
@@ -102,12 +102,14 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   /** verify inheritance graph, verify that parent class exists */
   for (const auto& pair : classNameMap) {
     // check that class current class inherits from exists
-    if (classNameMap.find(pair.second->get_parent()) == classNameMap.end()) {
-      semant_error(pair.second);      
+    if (!(pair.first->equal_string("Object", 6)) && classNameMap.find(pair.second->get_parent()) == classNameMap.end()) {
+      semant_error(pair.second) << "Class " << pair.first->get_string() << " inherits from an undefined class " << pair.second->get_parent()->get_string() << endl; 
+      return;     
     }
     // check for cycles
     if (checkInheritance(pair.first)) {
-      semant_error(pair.second);      // ask Sai Gautham about error statements
+      semant_error(pair.second) << "Class " << pair.first->get_string() << " or an ancestor of " << pair.first->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
+      return;
     }
   }
 
