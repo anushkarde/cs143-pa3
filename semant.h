@@ -6,6 +6,7 @@
 #include "stringtab.h"
 #include "symtab.h"
 #include <list>
+#include <map>
 
 #define TRUE 1
 #define FALSE 0
@@ -24,6 +25,7 @@ class ClassTable : public SymbolTable<Symbol, InheritanceNode> {
 private:
   int semant_errors;           // counts the number of semantic errors
   void install_basic_classes();
+  std::map<Symbol, Class_> classNameMap {};    // maps each class to its name
   std::ostream& error_stream;
 
 public:
@@ -32,6 +34,7 @@ public:
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
+  bool checkInheritance(Symbol curSym);    // checks inheritance for a given class
 };
 
 

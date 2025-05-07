@@ -34,6 +34,9 @@ class Class__class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
+   virtual Symbol get_name() = 0;
+   virtual Symbol get_parent() = 0;
+   virtual Features get_features() = 0;
 
 #ifdef Class__EXTRAS
    Class__EXTRAS
@@ -158,6 +161,9 @@ public:
       features = a3;
       filename = a4;
    }
+   Symbol get_name() { return name; }
+   Symbol get_parent() { return parent; }
+   Features get_features() { return features; }
    Class_ copy_Class_();
    void dump(ostream& stream, int n);
 

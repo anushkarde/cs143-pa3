@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include "semant.h"
 #include "utilities.h"
+#include <iostream>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -86,7 +87,45 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-  /* Fill this in */
+  install_basic_classes();
+  
+  /** iterate through, check inheritance pattern of classes */
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    Class_ current = classes->nth(i);
+    Symbol name = current->get_name();
+    classNameMap[name] = current;
+    cout << name->get_string() << endl;
+  }
+
+  for (const auto& pair : classNameMap) {
+    bool cycleFound = checkInheritance(pair.first);
+    if (cycleFound) {
+      semant_error(pair.second);      // ask Sai Gautham
+    }
+  }
+
+}
+
+/** 
+  This method checks if there is cyclic inheritance for a given class symbol,
+  and returns true if there is. 
+ */
+bool ClassTable::checkInheritance(Symbol curSym) {
+  Symbol parent = classNameMap[curSym]->get_parent();
+  for (int i = 0; i < 3; i++) {
+    if (parent->equal_string("Object", 6) || 
+    parent->equal_string("IO", 2) ||
+    parent->equal_string("Int", 3) ||
+    parent->equal_string("String", 6) ||
+    parent->equal_string("_no_class", 9)) {
+      return false;
+    }
+    if (parent->equal_string(curSym->get_string(), curSym->get_len())) {
+      return true;
+    }
+    parent = classNameMap[parent]->get_parent();
+  }
+  return false;
 }
 
 void ClassTable::install_basic_classes() {
@@ -193,6 +232,12 @@ void ClassTable::install_basic_classes() {
 				   Str,
 				   no_expr()))),
 	     filename);
+  
+  classNameMap[Object] = Object_class;
+  classNameMap[IO] = IO_class;
+  classNameMap[Int] = Int_class;
+  classNameMap[Bool] = Bool_class;
+  classNameMap[Str] = Str_class;
 }
 
 ////////////////////////////////////////////////////////////////////
