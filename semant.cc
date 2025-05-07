@@ -89,18 +89,25 @@ static void initialize_constants(void) {
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   install_basic_classes();
   
-  /** iterate through, check inheritance pattern of classes */
+  /** iterate through, add each class to our data structure */
   for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
     Class_ current = classes->nth(i);
     Symbol name = current->get_name();
+    if (classNameMap.find(name) != classNameMap.end()) {      // if class is already declared, throw error
+      semant_error(current);        // ask about declaring error here
+    }
     classNameMap[name] = current;
-    cout << name->get_string() << endl;
   }
 
+  /** verify inheritance graph, verify that parent class exists */
   for (const auto& pair : classNameMap) {
-    bool cycleFound = checkInheritance(pair.first);
-    if (cycleFound) {
-      semant_error(pair.second);      // ask Sai Gautham
+    // check that class current class inherits from exists
+    if (classNameMap.find(pair.second->get_parent()) == classNameMap.end()) {
+      semant_error(pair.second);      
+    }
+    // check for cycles
+    if (checkInheritance(pair.first)) {
+      semant_error(pair.second);      // ask Sai Gautham about error statements
     }
   }
 
@@ -112,12 +119,10 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
  */
 bool ClassTable::checkInheritance(Symbol curSym) {
   Symbol parent = classNameMap[curSym]->get_parent();
-  for (int i = 0; i < 3; i++) {
-    if (parent->equal_string("Object", 6) || 
-    parent->equal_string("IO", 2) ||
-    parent->equal_string("Int", 3) ||
-    parent->equal_string("String", 6) ||
-    parent->equal_string("_no_class", 9)) {
+  bool check = true;
+
+  while (check) {
+    if (parent->equal_string("_no_class", 9)) {
       return false;
     }
     if (parent->equal_string(curSym->get_string(), curSym->get_len())) {
@@ -125,7 +130,7 @@ bool ClassTable::checkInheritance(Symbol curSym) {
     }
     parent = classNameMap[parent]->get_parent();
   }
-  return false;
+  return check;
 }
 
 void ClassTable::install_basic_classes() {
