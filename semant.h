@@ -34,9 +34,28 @@ public:
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
-  bool checkInheritance(Symbol curSym);    // checks inheritance for a given class
+  bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
 };
+
+
+
+class Environment {
+  private: 
+    SymbolTable<Symbol, method_class> methodTable;
+    SymbolTable<Symbol, Symbol> varToType;
+    Symbol currentClass;
+  public: 
+   def copy_environment():
+    return new Environment(methodTable, varToType, currentClass);
+}
+
+
+
+Start:
+  // If the current class doesn't have any parent, 
+  // 
+
 
 
 #endif

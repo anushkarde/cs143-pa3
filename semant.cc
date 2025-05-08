@@ -6,6 +6,7 @@
 #include "semant.h"
 #include "utilities.h"
 #include <iostream>
+#include <set>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -100,17 +101,9 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   }
 
   if (!verifyParents(classes)) { return; }       // if we can't verify the parents of each class, return
+  if (!checkInheritance(classes)) { return; }    // if there are inheritance cycles, return
 
-  /** verify inheritance graph doesn't have cycles */
-  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
-    Class_ current = classes->nth(i);
-    Symbol name = current->get_name();
-    // check for cycles
-    if (checkInheritance(name)) {
-      semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
-      return;
-    }
-  }
+  /** start type checking */
 
 }
 
@@ -130,22 +123,52 @@ bool ClassTable::verifyParents(Classes classes) {
 
 /** 
   This method checks if there is cyclic inheritance for a given class symbol,
-  and returns true if there is. 
+  and returns true if the graph is well formed, and false if there are no cycles. 
  */
-bool ClassTable::checkInheritance(Symbol curSym) {
-  Symbol parent = classNameMap[curSym]->get_parent();
-  bool check = true;
+bool ClassTable::checkInheritance(Classes classes) {
+  bool inheritanceGood = true;
 
-  while (check) {
-    if (parent->equal_string("_no_class", 9)) {
-      return false;
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    Class_ current = classes->nth(i);
+    Symbol name = current->get_name();
+    Symbol parent = current->get_parent();
+    bool check = true;
+    std::set<Symbol> visitedClasses;
+    visitedClasses.insert(name);
+
+    /** iterate through inheritance graph and check for cycles for each class */
+    while (check) {       
+      if (parent->equal_string("_no_class", 9)) {
+        check = false;
+      }
+      else if (visitedClasses.find(parent) != visitedClasses.end()) {   // if we have already seen the class we are visiting now, we have a cycle!
+        semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
+        check = false;
+        inheritanceGood = false;
+      } else {
+        visitedClasses.insert(parent);
+        parent = classNameMap[parent]->get_parent();
+      }
     }
-    if (parent->equal_string(curSym->get_string(), curSym->get_len())) {
-      return true;
-    }
-    parent = classNameMap[parent]->get_parent();
   }
-  return check;
+  return inheritanceGood;
+}
+std::map<symbol, env>
+void ClassTable::check_methods() {
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    // Check if it has a parent
+    if(there is a parent):
+      curr_env = 
+
+    else:
+      // Iterate through the features.
+      // Check if it is a method:
+          // Add to the method table <method_name, *method_class>
+      // Check if it is an atrribute:
+          // Add to the attribute_table <attr_name, type_decl
+      
+      class_env_table[class->get_name()] = new Environment(method_table, attribute_table, ...)
+  }
 }
 
 void ClassTable::install_basic_classes() {
