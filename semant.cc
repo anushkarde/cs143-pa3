@@ -99,20 +99,33 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     classNameMap[name] = current;
   }
 
-  /** verify inheritance graph, verify that parent class exists */
-  for (const auto& pair : classNameMap) {
-    // check that class current class inherits from exists
-    if (!(pair.first->equal_string("Object", 6)) && classNameMap.find(pair.second->get_parent()) == classNameMap.end()) {
-      semant_error(pair.second) << "Class " << pair.first->get_string() << " inherits from an undefined class " << pair.second->get_parent()->get_string() << endl; 
-      return;     
-    }
+  if (!verifyParents(classes)) { return; }       // if we can't verify the parents of each class, return
+
+  /** verify inheritance graph doesn't have cycles */
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    Class_ current = classes->nth(i);
+    Symbol name = current->get_name();
     // check for cycles
-    if (checkInheritance(pair.first)) {
-      semant_error(pair.second) << "Class " << pair.first->get_string() << " or an ancestor of " << pair.first->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
+    if (checkInheritance(name)) {
+      semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
       return;
     }
   }
 
+}
+
+/** 
+  This method checks if the parents that each class inherits from exists. 
+ */
+bool ClassTable::verifyParents(Classes classes) {
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    Class_ current = classes->nth(i);
+    if (!(current->get_name()->equal_string("Object", 6)) && classNameMap.find(current->get_parent()) == classNameMap.end()) {
+      semant_error(current) << "Class " << current->get_name()->get_string() << " inherits from an undefined class " << current->get_parent()->get_string() << endl; 
+      return false;     
+    }
+  }
+  return true;
 }
 
 /** 

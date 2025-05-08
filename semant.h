@@ -35,6 +35,7 @@ public:
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
   bool checkInheritance(Symbol curSym);    // checks inheritance for a given class
+  bool verifyParents(Classes classes);
 };
 
 
