@@ -7,6 +7,7 @@
 #include "utilities.h"
 #include <iostream>
 #include <set>
+#include <queue>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -94,14 +95,31 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
     Class_ current = classes->nth(i);
     Symbol name = current->get_name();
+    Symbol parent = current->get_parent();
+    if (name == SELF_TYPE || name == Object || name == Int || name == Str || name == Bool) {  // cannot redefine basic classes
+      semant_error(current) << "Redefinition of basic class " << name->get_string() << "." << endl;
+      return;
+    }
     if (classNameMap.find(name) != classNameMap.end()) {      // if class is already declared, throw error
-      semant_error(current) << "Class " << name->get_string() << " was previously defined." << endl;        // ask about declaring error here
+      semant_error(current) << "Class " << name->get_string() << " was previously defined." << endl;
+      return;
+    } 
+    if (parent == Int || parent == Str || parent == Bool || parent == SELF_TYPE) {
+      semant_error(current) << "Class " << name->get_string() << " cannot inherit class " << parent->get_string() << "." << endl;
+      return;
     }
     classNameMap[name] = current;
   }
-
   if (!verifyParents(classes)) { return; }       // if we can't verify the parents of each class, return
   if (!checkInheritance(classes)) { return; }    // if there are inheritance cycles, return
+  /** must have a main class somewhere */
+  if (classNameMap.find(Main) == classNameMap.end()) {
+    semant_error() << "Class Main is not defined." << endl;
+    return;
+  }
+
+  /** build the actual inheritance tree */
+  topSortedClasses = topSortClasses(classes);
 
   /** start type checking */
 
@@ -142,7 +160,7 @@ bool ClassTable::checkInheritance(Classes classes) {
         check = false;
       }
       else if (visitedClasses.find(parent) != visitedClasses.end()) {   // if we have already seen the class we are visiting now, we have a cycle!
-        semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;      // ask Sai Gautham about error statements
+        semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;
         check = false;
         inheritanceGood = false;
       } else {
@@ -153,23 +171,55 @@ bool ClassTable::checkInheritance(Classes classes) {
   }
   return inheritanceGood;
 }
-std::map<symbol, env>
-void ClassTable::check_methods() {
-  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
-    // Check if it has a parent
-    if(there is a parent):
-      curr_env = 
 
-    else:
-      // Iterate through the features.
-      // Check if it is a method:
-          // Add to the method table <method_name, *method_class>
-      // Check if it is an atrribute:
-          // Add to the attribute_table <attr_name, type_decl
-      
-      class_env_table[class->get_name()] = new Environment(method_table, attribute_table, ...)
+Classes ClassTable::topSortClasses(Classes classes) {
+  Classes topSorted = {};      // initialize a list to hold our top sorted classes
+  Class_ start = classNameMap[Object];      // everything should inherit from object
+  /** calculate degrees of each class for Kahn's top sort */
+  std::map<Symbol, int> inDegrees = {};
+  for (const auto& pair : classNameMap) {
+    Symbol parent = pair.second->get_parent();
+    if (inDegrees.find(parent) == inDegrees.end()) {
+      inDegrees[parent] = 1;
+    } else {
+      inDegrees[parent] += 1;
+    }
   }
+
+  std::queue<Symbol> topOrderQueue = {};
+  for (const auto& pair : inDegrees) {
+    if (pair.second == 0) {
+      topOrderQueue.push(pair.first);
+    }
+  } 
+
+  while (!topOrderQueue.empty()){
+    u = queue.popleft()
+      topo_order.append(u)
+      for v in graph[u]:
+          in_degree[v] -= 1
+          if in_degree[v] == 0:
+              queue.append(v)
+  }
+  return topSorted;
 }
+// std::map<symbol, env>
+// void ClassTable::check_methods() {
+//   for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+//     // Check if it has a parent
+//     if(there is a parent):
+//       curr_env = 
+
+//     else:
+//       // Iterate through the features.
+//       // Check if it is a method:
+//           // Add to the method table <method_name, *method_class>
+//       // Check if it is an atrribute:
+//           // Add to the attribute_table <attr_name, type_decl
+      
+//       class_env_table[class->get_name()] = new Environment(method_table, attribute_table, ...)
+//   }
+// }
 
 void ClassTable::install_basic_classes() {
   // The tree package uses these globals to annotate the classes built below.

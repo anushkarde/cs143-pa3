@@ -27,6 +27,10 @@ private:
   void install_basic_classes();
   std::map<Symbol, Class_> classNameMap {};    // maps each class to its name
   std::ostream& error_stream;
+  bool checkInheritance(Classes classes);    // checks inheritance for a given class
+  bool verifyParents(Classes classes);
+  Classes topSortClasses(Classes classes);
+  Classes topSortedClasses {};
 
 public:
   ClassTable(Classes);
@@ -34,28 +38,19 @@ public:
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
-  bool checkInheritance(Classes classes);    // checks inheritance for a given class
-  bool verifyParents(Classes classes);
 };
 
 
 
-class Environment {
-  private: 
-    SymbolTable<Symbol, method_class> methodTable;
-    SymbolTable<Symbol, Symbol> varToType;
-    Symbol currentClass;
-  public: 
-   def copy_environment():
-    return new Environment(methodTable, varToType, currentClass);
-}
-
-
-
-Start:
-  // If the current class doesn't have any parent, 
-  // 
-
+// class Environment {
+//   private: 
+//     SymbolTable<Symbol, method_class> methodTable;
+//     SymbolTable<Symbol, Symbol> varToType;
+//     Symbol currentClass;
+//   public: 
+//    def copy_environment():
+//     return new Environment(methodTable, varToType, currentClass);
+// }
 
 
 #endif

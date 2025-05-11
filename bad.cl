@@ -1,4 +1,5 @@
-class B inherits D {};
-class E inherits D {};
-class F inherits D {};
-class D inherits B {};
+class E {};
+class F inherits A {};
+class D inherits G {};
+class G inherits A {};
+class A{};
