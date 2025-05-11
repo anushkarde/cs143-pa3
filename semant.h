@@ -6,6 +6,7 @@
 #include "stringtab.h"
 #include "symtab.h"
 #include <list>
+#include <vector>
 #include <map>
 
 #define TRUE 1
@@ -29,8 +30,10 @@ private:
   std::ostream& error_stream;
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
-  Classes topSortClasses(Classes classes);
-  Classes topSortedClasses {};
+  void checkMethods();
+  std::vector<Symbol> topSortClasses();
+  std::vector<Symbol> topSortedClasses {};
+  std::map<Symbol, Environment> classEnvTable {};
 
 public:
   ClassTable(Classes);
@@ -40,17 +43,17 @@ public:
   std::ostream& semant_error(Symbol filename, tree_node *t);
 };
 
-
-
-// class Environment {
-//   private: 
-//     SymbolTable<Symbol, method_class> methodTable;
-//     SymbolTable<Symbol, Symbol> varToType;
-//     Symbol currentClass;
-//   public: 
-//    def copy_environment():
-//     return new Environment(methodTable, varToType, currentClass);
-// }
+// This class is a type that hosts the environment for a given class
+// by holding symbol tables for methods and attributes.
+class Environment {
+  private: 
+    SymbolTable<Symbol, method_class> methodTable = {};
+    SymbolTable<Symbol, Symbol> varToType = {};
+    Symbol currentClass;
+  public:
+    Environment() 
+    Environment copy_environment() {  return new Environment(methodTable, varToType, currentClass); }
+}
 
 
 #endif

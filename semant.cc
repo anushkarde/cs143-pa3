@@ -8,6 +8,7 @@
 #include <iostream>
 #include <set>
 #include <queue>
+#include <vector>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -119,10 +120,10 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   }
 
   /** build the actual inheritance tree */
-  topSortedClasses = topSortClasses(classes);
+  topSortedClasses = topSortClasses();
 
-  /** start type checking */
-
+  /** start method checking */
+  checkMethods();
 }
 
 /** 
@@ -172,17 +173,28 @@ bool ClassTable::checkInheritance(Classes classes) {
   return inheritanceGood;
 }
 
-Classes ClassTable::topSortClasses(Classes classes) {
-  Classes topSorted = {};      // initialize a list to hold our top sorted classes
-  Class_ start = classNameMap[Object];      // everything should inherit from object
+/** 
+  Performs Kahn's toplogical sort on our list of classes. Returns a 
+  vector of the topologically sorted classes.
+ */
+std::vector<Symbol> ClassTable::topSortClasses() {
+  std::vector<Symbol> topSorted = {};      // initialize a list to hold our top sorted classes
   /** calculate degrees of each class for Kahn's top sort */
   std::map<Symbol, int> inDegrees = {};
+  std::map<Symbol, std::vector<Symbol>> parentToKids = {};
+
   for (const auto& pair : classNameMap) {
     Symbol parent = pair.second->get_parent();
-    if (inDegrees.find(parent) == inDegrees.end()) {
-      inDegrees[parent] = 1;
+    if (parentToKids.find(parent) == parentToKids.end()) {
+      parentToKids[parent] = {};
+      parentToKids[parent].push_back(pair.first);
     } else {
-      inDegrees[parent] += 1;
+      parentToKids[parent].push_back(pair.first);
+    }
+    if (parent != No_class) {
+      inDegrees[pair.first] = 1;
+    } else {
+      inDegrees[pair.first] = 0;
     }
   }
 
@@ -194,12 +206,19 @@ Classes ClassTable::topSortClasses(Classes classes) {
   } 
 
   while (!topOrderQueue.empty()){
-    u = queue.popleft()
-      topo_order.append(u)
-      for v in graph[u]:
-          in_degree[v] -= 1
-          if in_degree[v] == 0:
-              queue.append(v)
+    Symbol curr = topOrderQueue.front();
+    topOrderQueue.pop();
+    topSorted.push_back(curr);
+    for (Symbol child : parentToKids[curr]) {
+      inDegrees[child] -= 1;
+      if (inDegrees[child] == 0) {
+        topOrderQueue.push(child);
+      }
+    }
+  }
+
+  for (Symbol sym : topSorted) {
+    cout << "Class " << sym->get_string() << endl;
   }
   return topSorted;
 }
