@@ -16,6 +16,7 @@ class InheritanceNode;
 typedef InheritanceNode *InheritanceNodeP;
 class ClassTable;
 typedef ClassTable *ClassTableP;
+class Environment;
 
 
 // This is a structure that may be used to contain the semantic
@@ -31,9 +32,10 @@ private:
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
   void checkMethods();
+  void checkInheritedMethods(Feature childFeat, Feature parentFeat);
   std::vector<Symbol> topSortClasses();
   std::vector<Symbol> topSortedClasses {};
-  std::map<Symbol, Environment> classEnvTable {};
+  std::map<Symbol, Environment*> classEnvTable {};
 
 public:
   ClassTable(Classes);
@@ -48,12 +50,16 @@ public:
 class Environment {
   private: 
     SymbolTable<Symbol, method_class> methodTable = {};
-    SymbolTable<Symbol, Symbol> varToType = {};
+    SymbolTable<Symbol, Symbol> attribTable = {};
     Symbol currentClass;
   public:
-    Environment() 
-    Environment copy_environment() {  return new Environment(methodTable, varToType, currentClass); }
-}
+    Environment(Symbol sym) : currentClass(sym) {}
+    Environment(SymbolTable<Symbol, method_class> mT, SymbolTable<Symbol, Symbol> aT, Symbol cur) : methodTable(mT), attribTable(aT), currentClass(cur) {}
+    Environment *copyEnvironment() {  return new Environment(methodTable, attribTable, currentClass); }
+    void setCurrentClass(Symbol curClass) { currentClass = curClass; }
+    SymbolTable<Symbol, method_class> getMethodTable () { return methodTable; }
+    SymbolTable<Symbol, Symbol> getAttribTable () { return attribTable; }
+};
 
 
 #endif

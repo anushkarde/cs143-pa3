@@ -216,29 +216,65 @@ std::vector<Symbol> ClassTable::topSortClasses() {
       }
     }
   }
-
-  for (Symbol sym : topSorted) {
-    cout << "Class " << sym->get_string() << endl;
-  }
   return topSorted;
 }
-// std::map<symbol, env>
-// void ClassTable::check_methods() {
-//   for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
-//     // Check if it has a parent
-//     if(there is a parent):
-//       curr_env = 
 
-//     else:
-//       // Iterate through the features.
-//       // Check if it is a method:
-//           // Add to the method table <method_name, *method_class>
-//       // Check if it is an atrribute:
-//           // Add to the attribute_table <attr_name, type_decl
-      
-//       class_env_table[class->get_name()] = new Environment(method_table, attribute_table, ...)
-//   }
-// }
+void ClassTable::checkMethods() {
+  for (Symbol curClass : topSortedClasses) {
+    Environment *curEnv = new Environment(curClass);
+    Environment *parentEnv = nullptr;
+    /** if the environment has a parent, copy the parent's environment */
+    if(classNameMap[curClass]->get_parent() != No_class)
+    {
+      Symbol parent = classNameMap[curClass]->get_parent();
+      parentEnv = classEnvTable[parent]->copyEnvironment();
+    }
+    Features featureList = classNameMap[curClass]->get_features();
+    /** iterate over features */
+    curEnv->getMethodTable()->enterscope(); 
+    curEnv->getAttribTable()->enterscope();
+    for (int i = featureList->first(); featureList->more(i); i = featureList->next(i)) {
+      Feature curFeat = featureList->nth(i);
+      if (curFeat->is_method()) {   // if method, add to method table
+        if (parentEnv != nullptr && parentEnv->getMethodTable()->lookup(curFeat->get_name()) != NULL) {     // if we are overriding a method, check for semantic errors in overriding
+          checkInheritedMethods(curFeat, parentEnv->getMethodTable->lookup(curFeat->get_name()));
+        } else {
+          curEnv->getMethodTable.addid(curFeat->get_name(), curFeat);
+        }
+      } else {                      // if attribute, add to attr table
+        curEnv->getAttribTable.addid(curFeat->get_name(), curFeat->get_type_decl());
+        if (parentEnv != nullptr && parentEnv->getMethodTable()->lookup(curFeat->get_name()) != NULL) {
+          semant_error(classNameMap[curClass]) << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
+        }
+      }
+    }
+    
+    classEnvTable[curClass] = curEnv;
+  }
+}
+
+void checkInheritedMethods(Feature childFeat, Feature parentFeat) {
+  Formals childFormals = childFeat->get_formals();
+  Formals parentFormals = parentFeat->get_formals();
+  if (len(childFormals) != len(parentFormals)) {
+    semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << endl;
+    return;
+  }
+  /** keep track of parent formal types, we want same # and types of arguments */
+  for (int i = parentFormals->first(); parentFormals->more(i); i = parentFormals->next(i)) {
+    Formal parentForm = parentFormals->nth(i);
+    Formal childForm = childFormals->nth(i);
+    Symbol origType = parentForm->get_type();
+    Symbol childType = childForm->get_type();
+    if (childType != origType) {
+      semant_error() << "In redefined method " << parentFeat->get_name() << ", parameter type " << childType->get_name() << " is different from original type " << origType->get_name() << endl;
+    }
+  }
+  /** we also want both methods to have the same return type */ 
+  if (childFeat->get_return_type() != parentFeat->get_return_type()) {
+    semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << childFeat->get_return_type()->get_name() " is different from original return type " << parentFeat->get_return_type()->get_name() << endl;
+  }
+}
 
 void ClassTable::install_basic_classes() {
   // The tree package uses these globals to annotate the classes built below.
