@@ -12,6 +12,7 @@
 #include "tree.h"
 #include "cool-tree.handcode.h"
 class ClassTable;
+class Environment;
 
 // define the class for phylum
 // define simple phylum - Program
@@ -56,9 +57,9 @@ public:
    virtual Feature copy_Feature() = 0;
    virtual Symbol get_name() = 0;
    virtual bool is_method() = 0;
-   virtual method_class *copy_method() = 0;
-   virtual attr_class *copy_attr() = 0;
-   //virtual Symbol checkFeatureType(ClassTable *classtable) = 0; 
+   virtual void addToTable(Environment *env) = 0;
+   virtual bool checkInheritedMethods(method_class parentFeat) = 0;
+   virtual Symbol checkFeatureType(ClassTable *classtable, Environment *env) = 0; 
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -89,7 +90,7 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
-   //virtual Symbol checkType(ClassTable *classtable);
+   virtual Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -104,7 +105,7 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
-   //virtual Symbol checkCaseType(ClassTable *classtable);
+   virtual Symbol checkCaseType(ClassTable *classtable, Environment *env);
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -206,11 +207,11 @@ public:
    Formals get_formals() { return formals; }
    Symbol get_return_type() { return return_type; }
    Expression get_expr() { return expr; }
+   bool checkInheritedMethods(method_class parentFeat);
    bool is_method(){ return true; }
-   method_class *copy_method() { return new method_class(name, formals, return_type, expr); }
-   attr_class *copy_attr() { return nullptr; }
+   void addToTable(Environment *env);
    Feature copy_Feature();
-   Symbol checkFeatureType(ClassTable *classtable);
+   Symbol checkFeatureType(ClassTable *classtable, Environment *env);
 
    void dump(ostream& stream, int n);
 
@@ -240,9 +241,9 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_init() { return init; }
    bool is_method() { return false; }
-   method_class *copy_method() { return nullptr; }
-   attr_class *copy_attr() { return new attr_class(name, type_decl, init); }
-   Symbol checkFeatureType(ClassTable *classtable);
+   bool checkInheritedMethods(method_class parentFeat) { return false; }   // for security across feature classes   
+   void addToTable(Environment *env);
+   Symbol checkFeatureType(ClassTable *classtable, Environment *env);
    void dump(ostream& stream, int n);
 
 #ifdef Feature_SHARED_EXTRAS
@@ -292,7 +293,7 @@ public:
    }
    Case copy_Case();
    void dump(ostream& stream, int n);
-   Symbol checkCaseType(ClassTable *classtable);
+   Symbol checkCaseType(ClassTable *classtable, Environment *env);
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
@@ -315,7 +316,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -342,7 +343,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -367,7 +368,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -392,7 +393,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -415,7 +416,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -438,7 +439,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -459,7 +460,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -486,7 +487,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -509,7 +510,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -532,7 +533,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -555,7 +556,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -578,7 +579,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -599,7 +600,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -622,7 +623,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -645,7 +646,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -668,7 +669,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -689,7 +690,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -710,7 +711,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -731,7 +732,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -752,7 +753,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -773,7 +774,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -794,7 +795,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -813,7 +814,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   //Symbol checkType(ClassTable *classtable);
+   Symbol checkType(ClassTable *classtable, Environment *env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS

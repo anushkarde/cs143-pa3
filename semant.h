@@ -32,14 +32,14 @@ private:
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
   void mapEnvironments();
-  void checkInheritedMethods(method_class *childFeat, method_class *parentFeat);
+  void doTypeCheck();
   std::vector<Symbol> topSortClasses();
   std::vector<Symbol> topSortedClasses {};
-  std::map<Symbol, Environment*> classEnvTable {};
 
 public:
   ClassTable(Classes);
   Symbol leastCommonAncestor(Symbol type1, Symbol type2);
+  std::map<Symbol, Environment*> classEnvTable {};
   int errors() { return semant_errors; }
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);

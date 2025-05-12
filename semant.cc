@@ -125,6 +125,9 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
   /** start method checking */
   mapEnvironments();
+
+  /** type checking */
+  doTypeCheck();
 }
 
 /** 
@@ -242,16 +245,24 @@ void ClassTable::mapEnvironments() {
       if (curFeat->is_method()) { 
         if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
           semant_error() << "Method " << curFeat->get_name() << " is multiply defined." << endl;
+        } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
+          if (curFeat->checkInheritedMethods(curEnv->getMethodTable().lookup(curFeat->get_name()))) {
+            curFeat->addToTable(curEnv);
+          }
+        } else {
+          curFeat->addToTable(curEnv);
         }
-        curEnv->getMethodTable().addid(curFeat->get_name(), curFeat->copy_method());
       }
       else {  
-        if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
+        if (curFeat->get_name()->get_string() == "self") {
+          semant_error() << "\'self\' cannot be the name of an attribute." << endl;
+        } else if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
           semant_error() << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
         } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
           semant_error() << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
+        } else {
+          curFeat->addToTable(curEnv);
         }               
-        curEnv->getAttribTable().addid(curFeat->get_name(), curFeat->copy_attr());
       }
     }
     classEnvTable[curClass] = curEnv;
@@ -285,12 +296,17 @@ Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2) {
   return Object;
 }
 
-void ClassTable::checkInheritedMethods(method_class *childFeat, method_class *parentFeat) {
-  Formals childFormals = childFeat->get_formals();
+/**
+  This method checks whether the current method is inherited properly from
+  the passed in parent method. 
+ */
+bool method_class::checkInheritedMethods(method_class *parentFeat) {
+  Formals childFormals = this->get_formals();
   Formals parentFormals = parentFeat->get_formals();
-  if (childFormals->len() != parentFormals->len()) {
+  bool validOverride = true;
+  if (this->len() != parentFormals->len()) {
     semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << endl;
-    return;
+    return false;
   }
   /** keep track of parent formal types, we want same # and types of arguments */
   int i = parentFormals->first();
@@ -302,13 +318,27 @@ void ClassTable::checkInheritedMethods(method_class *childFeat, method_class *pa
     Symbol childType = childForm->get_type();
     if (childType != origType) {
       semant_error() << "In redefined method " << parentFeat->get_name() << ", parameter type " << childType->get_string() << " is different from original type " << origType->get_string() << endl;
+      validOverride = false;
     }
   }
   /** we also want both methods to have the same return type */ 
-  if (childFeat->get_return_type() != parentFeat->get_return_type()) {
-    semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << childFeat->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << endl;
+  if (this->get_return_type() != parentFeat->get_return_type()) {
+    semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << endl;
+    validOverride = false;
+  }
+  return validOverride;
+}
+
+void ClassTable::doTypeCheck() {
+  /** go through all classes, perform type checking using their environments */
+  for (Symbol curClass : topSortedClasses) {
+    Features featureList = classNameMap[curClass]->get_features();
+    for (Feature f: featureList) {
+      f->checkFeatureType(this, classEnvTable[curClass]);
+    }
   }
 }
+
 
 void ClassTable::install_basic_classes() {
   // The tree package uses these globals to annotate the classes built below.
@@ -483,8 +513,35 @@ void program_class::semant() {
 }
 /** declarations for type checking */
 
+/** adding to method table for the given environment */
+void method_class::addToTable(Environment *env) {
+  env->getMethodTable().addid(name, this);
+}
+
+/** adding to the attribution table for the given environemnt */
+void attr_class::addToTable(Environment *env) {
+  env->getAttribTable().addid(name, type_decl);
+}
+
+/** check that declared type of  */
+void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
+  Symbol declared_type = type_decl;
+  if (classEnvTable.find(declared_type) == classEnvTable.end()) {
+    class_table->semant_error() << "Class " << declared_type->get_string() << "of attribute " << name->get_string() << " is undefined." << endl;
+  }
+  Symbol expr_type = init->checkType(classtable, env);
+  if (declared_type != expr_type) {
+    classtable->semant_error() << "Inferred type of " << expr_type->get_string() " of initialization of attribute " << name->get_string() << " does not conform to declared type " << declared_type->get_string() "." << endl;
+  }
+}
+
+void method_class::checkFeatureType(ClassTable *classtable, Environment *env) { 
+  
+}
+
 /** type checking for conditionals */
-// Symbol cond_class::checkType(ClassTable *classtable) {
+Symbol object_class::checkType()
+// Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
 //   if (pred->checkType(classtable) != Bool) {
 //     classtable->semant_error() << "If statements must have a boolean predicate." << endl;
 //   } else {
@@ -499,22 +556,22 @@ void program_class::semant() {
 //   return type;
 // }
 // /** no_expr has no type */ 
-// Symbol no_expr_class::checkType(ClassTable *classtable) {
+// Symbol no_expr_class::checkType(ClassTable *classtable, Environment *env) {
 //   type = No_type;
 //   return type;
 // }
 // /** bool constants */
-// Symbol bool_const_class::checkType(ClassTable *classtable) {
+// Symbol bool_const_class::checkType(ClassTable *classtable, Environment *env) {
 //   type = Bool;
 //   return type;
 // }
 // /** string constants */
-// Symbol string_const_class::checkType(ClassTable *classtable) {
+// Symbol string_const_class::checkType(ClassTable *classtable, Environment *env) {
 //   type = Str;
 //   return type;
 // }
 // /** integer constants */
-// Symbol int_const_class::checkType(ClassTable *classtable) {
+// Symbol int_const_class::checkType(ClassTable *classtable, Environment *env) {
 //   type = Int;
 //   return type;
 // }

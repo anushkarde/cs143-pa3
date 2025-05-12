@@ -20,13 +20,12 @@ class E {
 class D inherits E {
 	a: Int;
 	b: Int;
-	c : D;
-	c: Bool <- 3;
-	fat (): Int {
+	c: Bool <- "str";
+	fat(): Bool {
 		c
 	};
-	fat(): Bool {
-		true
+	fat (): Int {
+		c
 	};
 };
 
