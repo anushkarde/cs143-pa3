@@ -58,6 +58,7 @@ class Environment {
     Environment(SymbolTable<Symbol, method_class> mT, SymbolTable<Symbol, attr_class> aT, Symbol cur) : methodTable(mT), attribTable(aT), currentClass(cur) {}
     Environment *copyEnvironment() {  return new Environment(methodTable, attribTable, currentClass); }
     void setCurrentClass(Symbol curClass) { currentClass = curClass; }
+    Symbol getCurrentClass() { return currentClass; }
     SymbolTable<Symbol, method_class> getMethodTable () { return methodTable; }
     SymbolTable<Symbol, attr_class> getAttribTable () { return attribTable; }
 };

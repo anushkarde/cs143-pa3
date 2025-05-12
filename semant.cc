@@ -274,6 +274,8 @@ void ClassTable::mapEnvironments() {
  */
 Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2) {
   if (type1 == type2) { return type1; }
+  if (type1 == _BOTTOM_) { return type2; }
+  if (type2 == _BOTTOM_) { return type2; }
 
   std::set<Symbol> ancestors;
   Class_ curr = classNameMap[type1];
@@ -526,7 +528,7 @@ void attr_class::addToTable(Environment *env) {
 /** check that declared type of  */
 void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   Symbol declared_type = type_decl;
-  if (classEnvTable.find(declared_type) == classEnvTable.end()) {
+  if (classtable->classEnvTable.find(declared_type) == classtable->classEnvTable.end()) {
     class_table->semant_error() << "Class " << declared_type->get_string() << "of attribute " << name->get_string() << " is undefined." << endl;
   }
   Symbol expr_type = init->checkType(classtable, env);
@@ -539,8 +541,230 @@ void method_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   
 }
 
-/** type checking for conditionals */
-Symbol object_class::checkType()
+/** type checking for typcase */
+Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol firstType = expr->checkType(classtable, env);
+  std::set<Symbol> branchTypes;
+  for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
+    Case c = cases->nth(i);
+    Symbol curCaseType = c->checkCaseType(classtable, env);
+    Symbol decl_type = c->get_type_decl();
+    if (branchTypes.find(decl_type) != branchTypes.end()) {
+      classtable->semant_error() << "Duplicate branch " << decl_type->get_string() << " in case statement." << endl;
+    } else {
+      branchTypes.insert(decl_type);
+    }
+    firstType = leastCommonAncestor(curCaseType, firstType);
+  }
+  type = firstType;
+  return type;
+}
+
+/** type checking for block expressions */
+Symbol block_class::checkType(ClassTable *classtable, Environment *env) {
+  for (int i = body->first(); body->more(i); i = body->next(i)) {
+    Expression exp = body->nth(i);
+    type = exp->checkType(classtable, env);
+  }
+  return type;
+}
+
+/** type checking for let bindings */
+Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1Type = init->checkType(classtable, env);
+  SymbolTable<Symbol, attr_class> attribTable = env->getAttribTable();     // enter new scope for let bindings
+  attribTable.enterscope();
+  attribTable.addid(identifier, type_decl);
+  Symbol lcaCheck = type_decl;
+  if (e1 != No_type) {
+    if (type_decl == SELF_TYPE) {
+      lcaCheck = env->getCurrentClass();
+    }
+    if (leastCommonAncestor(e1Type, lcaCheck) != lcaCheck) {
+      classtable->semant_error() << "Inferred type " << e1type->get_string() << " of initialization of " << identifier->get_string() << " does not conform to identifier\'s declared type " << type_decl->get_string() << "." << endl;
+    }
+  }
+  type = body->checkType(classtable, env);
+  attribTable.exitscope();
+  return type;
+}
+
+/** type checking for plus class */
+Symbol plus_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type == Int && e2_type == Int) {
+    type = Int;
+  } else {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "+" << e2_type->get_string() << endl;
+  }
+  return type;
+}
+
+/** type checking for sub class */
+Symbol sub_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type == Int && e2_type == Int) {
+    type = Int;
+  } else {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "-" << e2_type->get_string() << endl;
+  }
+  return type;
+}
+
+/** type checking for mult class */
+Symbol mul_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type == Int && e2_type == Int) {
+    type = Int;
+  } else {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "*" << e2_type->get_string() << endl;
+  }
+  return type;
+}
+
+/** type checking for divide class */
+Symbol divide_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type == Int && e2_type == Int) {
+    type = Int;
+  } else {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "/" << e2_type->get_string() << endl;
+  }
+  return type;
+}
+
+/** type checking for neg class */
+Symbol neg_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  if (e1_type == Int) {
+    type = Int;
+  } else {
+    type = _BOTTOM_;
+    semant_error() << "Argument of \'~\' has type " << e1_type->get_string() << " instead of Int." << endl;
+  }
+  return type;
+}
+
+/** type checking for lt class */
+Symbol lt::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type != Int || e2_type != Int) {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "<" << e2_type->get_string() << endl;
+  } else {
+    type = Bool;
+  }
+  return type;
+}
+
+/**  type checking for eq class */
+Symbol eq::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type == Int || e2_type == Int || e1_type == Str || e2_type == Str || e1_type == Bool || e2_type == Bool) {
+    if (e1_type == e2_type) {
+      type = Bool;
+    } else {
+      classtable->semant_error() << "Illegal comparison with a basic type." << endl;
+      type = _BOTTOM_;
+    }
+  } else {
+    type = Bool;
+  }
+  return type;
+}
+
+
+/** type checking for leq class */ 
+Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol e1_type = e1->checkType(classtable, env);
+  Symbol e2_type = e2->checkType(classtable, env);
+  if (e1_type != Int || e2_type != Int) {
+    type = _BOTTOM_;
+    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "<=" << e2_type->get_string() << endl;
+  } else {
+    type = Bool;
+  }
+  return type;
+}
+
+/** type checking for NOT expressions */
+Symbol comp_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol expr_type = e1->checkType(classtable, env);
+  if (expr_type == Bool) {
+    type = Bool;
+  } else {
+    type = _BOTTOM_;
+    classtable->semant_error() << "Argument of \'not\' has type " << expr_type->get_string() << " instead of Bool." << endl;
+  }
+  return type;
+}
+
+/** type checking for integer constants */
+Symbol int_const_class::checkType(ClassTable *classtable, Environment *env) {
+  type = Int;
+  return type;
+}
+
+/** type checking for bool constants */
+Symbol bool_const_class::checkType(ClassTable *classtable, Environment *env) {
+  type = Bool;
+  return type;
+}
+
+/** type checking string constants */
+Symbol string_const_class::checkType(ClassTable *classtable, Environment *env) {
+  type = Str;
+  return type;
+}
+
+/** type checking for new_class */
+Symbol new__class::checkType(ClassTable *classtable, Environment *env) {
+  if (type_name != SELF_TYPE && classtable->classEnvTable.find(type_name) == classtable->classEnvTable.end()) {
+    classtable->semant_error() << "\'new\' used with undefined class " << type_name->get_string() << "." << endl;
+  }
+  type = type_name;
+  return type;
+}
+
+/** type checking for isVoid */
+Symbol isvoid_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol sym = e1->checkType();
+  type = Bool;
+  return type;
+}
+
+/** no_expr has no type */ 
+Symbol no_expr_class::checkType(ClassTable *classtable, Environment *env) {
+  type = _BOTTOM_;
+  return type;
+}
+
+/** type checking for object identifiers */
+Symbol object_class::checkType(ClassTable *classtable, Environment *env) {
+  type = _BOTTOM_;
+  if (name == self) {
+    type = SELF_TYPE;
+    return type;
+  }
+
+  /** if not self type, lookup in table */
+  if (env->getAttribTable()->lookup(name) != NULL) {
+    type = env->getAttribTable()->lookup(name);
+  } else {
+    classtable->semant_error() << "Undeclared identifier " << name->get_string() << ".";
+  }
+  return type;
+}
 // Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
 //   if (pred->checkType(classtable) != Bool) {
 //     classtable->semant_error() << "If statements must have a boolean predicate." << endl;
@@ -553,25 +777,5 @@ Symbol object_class::checkType()
 //       type = classtable->leastCommonAncestor(type_e1, type_e2);
 //     }
 //   }
-//   return type;
-// }
-// /** no_expr has no type */ 
-// Symbol no_expr_class::checkType(ClassTable *classtable, Environment *env) {
-//   type = No_type;
-//   return type;
-// }
-// /** bool constants */
-// Symbol bool_const_class::checkType(ClassTable *classtable, Environment *env) {
-//   type = Bool;
-//   return type;
-// }
-// /** string constants */
-// Symbol string_const_class::checkType(ClassTable *classtable, Environment *env) {
-//   type = Str;
-//   return type;
-// }
-// /** integer constants */
-// Symbol int_const_class::checkType(ClassTable *classtable, Environment *env) {
-//   type = Int;
 //   return type;
 // }
