@@ -19,20 +19,27 @@ class E {
 
 class D inherits E {
 	a: Int;
-	b: self.quick(3, false);
-	quick(x: Int, x: Bool) : Bool {
-		false
+	b: Int;
+	c : D;
+	fat (): Int {
+		3
+	};
+	fat(): Bool {
+		a
 	};
 };
 
 class F inherits D {
-	quick(x: Int, y: Bool) : Bool {
+	quick(x: Int, y: Int) : String {
 		false
 	};
 };
 
 Class Main {
 	main():C {
-	  (new C).init(1,true)
+		{
+			(new C).init(1,true);
+			(new D).fat();
+		}
 	};
 };

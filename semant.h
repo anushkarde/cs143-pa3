@@ -31,8 +31,8 @@ private:
   std::ostream& error_stream;
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
-  void checkMethods();
-  void checkInheritedMethods(Feature childFeat, Feature parentFeat);
+  void mapEnvironments();
+  void checkInheritedMethods(method_class *childFeat, method_class *parentFeat);
   std::vector<Symbol> topSortClasses();
   std::vector<Symbol> topSortedClasses {};
   std::map<Symbol, Environment*> classEnvTable {};
@@ -50,15 +50,15 @@ public:
 class Environment {
   private: 
     SymbolTable<Symbol, method_class> methodTable = {};
-    SymbolTable<Symbol, Symbol> attribTable = {};
+    SymbolTable<Symbol, attr_class> attribTable = {};
     Symbol currentClass;
   public:
     Environment(Symbol sym) : currentClass(sym) {}
-    Environment(SymbolTable<Symbol, method_class> mT, SymbolTable<Symbol, Symbol> aT, Symbol cur) : methodTable(mT), attribTable(aT), currentClass(cur) {}
+    Environment(SymbolTable<Symbol, method_class> mT, SymbolTable<Symbol, attr_class> aT, Symbol cur) : methodTable(mT), attribTable(aT), currentClass(cur) {}
     Environment *copyEnvironment() {  return new Environment(methodTable, attribTable, currentClass); }
     void setCurrentClass(Symbol curClass) { currentClass = curClass; }
     SymbolTable<Symbol, method_class> getMethodTable () { return methodTable; }
-    SymbolTable<Symbol, Symbol> getAttribTable () { return attribTable; }
+    SymbolTable<Symbol, attr_class> getAttribTable () { return attribTable; }
 };
 
 

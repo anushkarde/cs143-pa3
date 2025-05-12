@@ -46,6 +46,8 @@ public:
 
 // define simple phylum - Feature
 typedef class Feature_class *Feature;
+class method_class;
+class attr_class; 
 
 class Feature_class : public tree_node {
 public:
@@ -53,6 +55,8 @@ public:
    virtual Feature copy_Feature() = 0;
    virtual Symbol get_name() = 0;
    virtual bool is_method() = 0;
+   virtual method_class *copy_method() = 0;
+   virtual attr_class *copy_attr() = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -199,8 +203,10 @@ public:
    Symbol get_return_type() { return return_type; }
    Expression get_expr() { return expr; }
    bool is_method(){ return true; }
-
+   method_class *copy_method() { return new method_class(name, formals, return_type, expr); }
+   attr_class *copy_attr() { return nullptr; }
    Feature copy_Feature();
+
    void dump(ostream& stream, int n);
 
 #ifdef Feature_SHARED_EXTRAS
@@ -229,6 +235,8 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_init() { return init; }
    bool is_method() { return false; }
+   method_class *copy_method() { return nullptr; }
+   attr_class *copy_attr() { return new attr_class(name, type_decl, init); }
    void dump(ostream& stream, int n);
 
 #ifdef Feature_SHARED_EXTRAS
