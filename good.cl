@@ -21,11 +21,12 @@ class D inherits E {
 	a: Int;
 	b: Int;
 	c : D;
+	c: Bool <- 3;
 	fat (): Int {
-		3
+		c
 	};
 	fat(): Bool {
-		a
+		true
 	};
 };
 

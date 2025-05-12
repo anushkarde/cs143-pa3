@@ -39,6 +39,7 @@ private:
 
 public:
   ClassTable(Classes);
+  Symbol leastCommonAncestor(Symbol type1, Symbol type2);
   int errors() { return semant_errors; }
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);

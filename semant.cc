@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include "semant.h"
 #include "utilities.h"
+#include "cool-tree.h"
 #include <iostream>
 #include <set>
 #include <queue>
@@ -233,19 +234,55 @@ void ClassTable::mapEnvironments() {
     }
     Features featureList = classNameMap[curClass]->get_features();
     /** iterate over features */
+    if (featureList->len() == 0) { continue; }
     curEnv->getMethodTable().enterscope(); 
     curEnv->getAttribTable().enterscope();
     for (int i = featureList->first(); featureList->more(i); i = featureList->next(i)) {
       Feature curFeat = featureList->nth(i);
       if (curFeat->is_method()) { 
+        if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
+          semant_error() << "Method " << curFeat->get_name() << " is multiply defined." << endl;
+        }
         curEnv->getMethodTable().addid(curFeat->get_name(), curFeat->copy_method());
       }
-      else {                     
+      else {  
+        if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
+          semant_error() << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
+        } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
+          semant_error() << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
+        }               
         curEnv->getAttribTable().addid(curFeat->get_name(), curFeat->copy_attr());
       }
     }
     classEnvTable[curClass] = curEnv;
   }
+}
+
+/**
+  Returns the least common ancestor of two classes.
+ */
+Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2) {
+  if (type1 == type2) { return type1; }
+
+  std::set<Symbol> ancestors;
+  Class_ curr = classNameMap[type1];
+  Symbol parent = nullptr;
+  while (curr != nullptr && curr->get_name() != No_class) {
+    ancestors.insert(curr->get_name());
+    parent = curr->get_parent();
+    curr = classNameMap[parent];
+  }
+
+  curr = classNameMap[type2];
+  while (curr != nullptr && curr->get_name() != No_class) {
+    if (ancestors.count(curr->get_name())) {
+      return curr->get_name();
+    } 
+    parent = curr->get_parent();
+    curr = classNameMap[parent];
+  }
+
+  return Object;
 }
 
 void ClassTable::checkInheritedMethods(method_class *childFeat, method_class *parentFeat) {
@@ -444,3 +481,40 @@ void program_class::semant() {
       exit(1);
    }
 }
+/** declarations for type checking */
+
+/** type checking for conditionals */
+// Symbol cond_class::checkType(ClassTable *classtable) {
+//   if (pred->checkType(classtable) != Bool) {
+//     classtable->semant_error() << "If statements must have a boolean predicate." << endl;
+//   } else {
+//     Symbol type_e1 = then_exp->checkType(classtable);
+//     Symbol type_e2 = else_exp->checkType(classtable);
+//     if (type_e2 == No_type) {
+//       type = type_e1;
+//     } else {
+//       type = classtable->leastCommonAncestor(type_e1, type_e2);
+//     }
+//   }
+//   return type;
+// }
+// /** no_expr has no type */ 
+// Symbol no_expr_class::checkType(ClassTable *classtable) {
+//   type = No_type;
+//   return type;
+// }
+// /** bool constants */
+// Symbol bool_const_class::checkType(ClassTable *classtable) {
+//   type = Bool;
+//   return type;
+// }
+// /** string constants */
+// Symbol string_const_class::checkType(ClassTable *classtable) {
+//   type = Str;
+//   return type;
+// }
+// /** integer constants */
+// Symbol int_const_class::checkType(ClassTable *classtable) {
+//   type = Int;
+//   return type;
+// }
