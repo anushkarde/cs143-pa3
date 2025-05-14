@@ -517,34 +517,214 @@ void program_class::semant() {
 
 /** adding to method table for the given environment */
 void method_class::addToTable(Environment *env) {
-  env->getMethodTable().addid(name, this);
+  env->getMethodTable()->addid(name, this);
 }
 
 /** adding to the attribution table for the given environemnt */
 void attr_class::addToTable(Environment *env) {
-  env->getAttribTable().addid(name, type_decl);
+  env->getAttribTable()->addid(name, type_decl);
 }
 
-/** check that declared type of  */
+/** type check an attribute */
 void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   Symbol declared_type = type_decl;
   if (classtable->classEnvTable.find(declared_type) == classtable->classEnvTable.end()) {
     class_table->semant_error() << "Class " << declared_type->get_string() << "of attribute " << name->get_string() << " is undefined." << endl;
   }
+  SymbolTable<Symbol, Symbol> attribTable = env->getAttribTable();
+  attribTable->enterscope();
+  attribTable->addid(self, SELF_TYPE);
   Symbol expr_type = init->checkType(classtable, env);
-  if (declared_type != expr_type) {
+  if (expr_type == No_type) {
+    return;
+  }
+  if (leastCommonAncestor(expr_type, declared_type) != declared_type) {
     classtable->semant_error() << "Inferred type of " << expr_type->get_string() " of initialization of attribute " << name->get_string() << " does not conform to declared type " << declared_type->get_string() "." << endl;
   }
+  attribTable.exitscope();
 }
 
+/** type check a method */
 void method_class::checkFeatureType(ClassTable *classtable, Environment *env) { 
   
+}
+
+/** type checking for assignment expression */
+Symbol assign_class::checkType(ClassTable *classtable, Environment *env) {
+  SymbolTable<Symbol, Symbol> curAttribTable = env->getAttribTable();
+  Symbol inferType = expr->checkType(classtable, env);
+  if (curAttribTable->lookup(name) == NULL) {
+    classtable->semant_error() << "Assignment to undeclared variable " << name->get_string() << "." << endl;
+    type = _BOTTOM_;
+  } else {
+    if (leastCommonAncestor(inferType, curAttribTable->lookup(name)) == curAttribTable->lookup(name)) {
+      type = inferType;
+    } else {
+      classtable->semant_error() << "Type " << inferType->get_string() << " of assigned expression does not conform to declared type " << curAttribTable->lookup(name)->get_string() << " of identifier " << name->get_string << "." << endl;
+      type = _BOTTOM_;
+    }
+  }
+  return type;
+}
+
+/** type checking for static dispatch */
+Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol origCallerType = expr->checkType(classtable, env);
+  Symbol callerType = origCallerType;
+  std::vector<Symbol> paramTypes = {};
+  for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+    Expression curExpr = actual->nth(i);
+    paramTypes.push_back(curExpr->checkType(classtable, env));
+  }
+  if (callerType = SELF_TYPE) {
+    callerType = env->getCurrentclass();
+  }
+
+  /** if the caller type doesn't exist throw an error */
+  if (classEnvTable.find(callerType) == classEnvTable.end()) {
+    classtable->semant_error() << "Static dispatch on type " << callerType->get_string() << "not allowed." << endl;
+    type = _BOTTOM_;
+    return type;
+  }
+  
+  /** if the method we are trying to call is not one we inherit, throw error */
+  Symbol parentType = type_name;
+  if (leastCommonAncestor(parentType, callerType) !=  parentType) {
+    classtable->semant_error() << "Expression type " << callerType->get_string() << "does not conform to declared static dispatch type " << parentType->get_string() << "." << endl;
+    type = _BOTTOM_;
+    return type;
+  }
+
+  /**  get method from parent table */
+  Environment *parentEnv = classtable->classEnvTable[parentType];
+  SymbolTable<Symbol, method_class> parentMethTable = callerEnv->getMethodTable();
+  if (callerMethTable->lookup(name) == NULL) {  
+    classtable->semant_error() << "Static dispatch to undefined method " << name->get_string() << "." << endl;
+    type = _BOTTOM_;
+  } else {
+    method_class parentMethod = parentMethTable->lookup(name);
+    Formals forms = parentMethod->get_formals();
+    if (forms->len() != paramTypes.size()) {
+      classtable->semant_error() << "Method " << name->get_string() << " called with wrong number of arguments." << endl;
+      type = _BOTTOM_;
+    } else {
+      /** iterate through formals and check types */
+      bool error_found = false;
+      for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
+        Symbol form_type = forms->nth(i)->get_type();
+        if (leastCommonAncestor(form_type, paramTypes[i]) != form_type) {
+          classtable->semant_error() << "In call of method " << name->get_string() << ", type " << attempted_type->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
+          type = _BOTTOM_;
+          error_found = true;
+        }
+      }
+      if (!error_found) {
+        if (parentMethod->get_return_type() == SELF_TYPE) {
+          type = origCallerType;
+        } else {
+          type = parentMethod->get_return_type();
+        }
+      }
+    }
+  }
+  return type; 
+
+}
+
+/** type checking for dispatch */
+Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol origCallerType = expr->checkType(classtable, env);
+  Symbol callerType = origCallerType;
+  /** collect all the passed in parameter types */
+  std::vector<Symbol> paramTypes = {};
+  for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+    Expression curExpr = actual->nth(i);
+    paramTypes.push_back(curExpr->checkType(classtable, env));
+  }
+  if (callerType = SELF_TYPE) {
+    callerType = env->getCurrentclass();
+  }
+  /** if the caller type doesn't exist throw an error */
+  if (classEnvTable.find(callerType) == classEnvTable.end()) {
+    classtable->semant_error() << "Dispatch on type " << callerType->get_string() << "not allowed." << endl;
+    type = _BOTTOM_;
+    return type;
+  }
+  Environment *callerEnv = classtable->classEnvTable[callerType];
+  SymbolTable<Symbol, method_class> callerMethTable = callerEnv->getMethodTable();
+  if (callerMethTable->lookup(name) == NULL) {  
+    classtable->semant_error() << "Dispatch to undefined method " << name->get_string() << "." << endl;
+    type = _BOTTOM_;
+  } else {
+    method_class callerMethod = callerMethTable->lookup(name);
+    Formals forms = callerMethod->get_formals();
+    if (forms->len() != paramTypes.size()) {
+      classtable->semant_error() << "Method " << name->get_string() << " called with wrong number of arguments." << endl;
+      type = _BOTTOM_;
+    } else {
+      /** iterate through formals and check types */
+      bool error_found = false;
+      for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
+        Symbol form_type = forms->nth(i)->get_type();
+        if (leastCommonAncestor(form_type, paramTypes[i]) != form_type) {
+          classtable->semant_error() << "In call of method " << name->get_string() << ", type " << attempted_type->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
+          type = _BOTTOM_;
+          error_found = true;
+        }
+      }
+      if (!error_found) {
+        if (callerMethod->get_return_type() == SELF_TYPE) {
+          type = origCallerType;
+        } else {
+          type = callerMethod->get_return_type();
+        }
+      }
+    }
+  }
+  return type; 
+}
+
+/**  type checking for conditional statements */
+Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
+  if (pred->checkType(classtable) != Bool) {
+    classtable->semant_error() << "If statements must have a boolean predicate." << endl;
+  } else {
+    Symbol type_e1 = then_exp->checkType(classtable);
+    Symbol type_e2 = else_exp->checkType(classtable);
+    if (type_e2 == No_type) {
+      type = type_e1;
+    } else {
+      type = classtable->leastCommonAncestor(type_e1, type_e2);
+    }
+  }
+  return type;
+}
+
+/** type checking for loops */
+Symbol loop_class::checkType(ClassTable *classtable, Environment *env) {
+  if (pred->checkType() != Bool) {
+    classtable->semant_error() << "Loop condition does not have type Bool." << endl;
+  }
+  body->checkType();
+  type = Object;
+  return type;
+}
+
+/** type checking for branches of cases */
+Symbol branch_class::checkCaseType(ClassTable *classtable, Environment *env) {
+  SymbolTable<Symbol, Symbol> curAttribTable = env->getAttribTable();
+  curAttribTable.enterscope();
+  curAttribTable.addid(name, type_decl); 
+  Symbol expr_type = expr->checkType(classtable, env);
+  curAttribTable.exitscope();
+  return expr_type;
 }
 
 /** type checking for typcase */
 Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol firstType = expr->checkType(classtable, env);
   std::set<Symbol> branchTypes;
+  /** iterate over cases and check types for each case */
   for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
     Case c = cases->nth(i);
     Symbol curCaseType = c->checkCaseType(classtable, env);
@@ -573,8 +753,8 @@ Symbol block_class::checkType(ClassTable *classtable, Environment *env) {
 Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol e1Type = init->checkType(classtable, env);
   SymbolTable<Symbol, attr_class> attribTable = env->getAttribTable();     // enter new scope for let bindings
-  attribTable.enterscope();
-  attribTable.addid(identifier, type_decl);
+  attribTable->enterscope();
+  attribTable->addid(identifier, type_decl);
   Symbol lcaCheck = type_decl;
   if (e1 != No_type) {
     if (type_decl == SELF_TYPE) {
@@ -585,7 +765,7 @@ Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
     }
   }
   type = body->checkType(classtable, env);
-  attribTable.exitscope();
+  attribTable->exitscope();
   return type;
 }
 
@@ -765,17 +945,3 @@ Symbol object_class::checkType(ClassTable *classtable, Environment *env) {
   }
   return type;
 }
-// Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
-//   if (pred->checkType(classtable) != Bool) {
-//     classtable->semant_error() << "If statements must have a boolean predicate." << endl;
-//   } else {
-//     Symbol type_e1 = then_exp->checkType(classtable);
-//     Symbol type_e2 = else_exp->checkType(classtable);
-//     if (type_e2 == No_type) {
-//       type = type_e1;
-//     } else {
-//       type = classtable->leastCommonAncestor(type_e1, type_e2);
-//     }
-//   }
-//   return type;
-// }
