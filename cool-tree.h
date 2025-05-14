@@ -58,8 +58,8 @@ public:
    virtual Symbol get_name() = 0;
    virtual bool is_method() = 0;
    virtual void addToTable(Environment *env) = 0;
-   virtual bool checkInheritedMethods(method_class parentFeat) = 0;
-   virtual Symbol checkFeatureType(ClassTable *classtable, Environment *env) = 0; 
+   virtual bool checkInheritedMethods(ClassTable *classtable, method_class *parent) = 0;
+   virtual void checkFeatureType(ClassTable *classtable, Environment *env) = 0; 
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -90,7 +90,7 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
-   virtual Symbol checkType(ClassTable *classtable, Environment *env);
+   virtual Symbol checkType(ClassTable *classtable, Environment *env) = 0;
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -106,7 +106,7 @@ public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
    virtual Symbol get_type_decl() = 0;
-   virtual Symbol checkCaseType(ClassTable *classtable, Environment *env);
+   virtual Symbol checkCaseType(ClassTable *classtable, Environment *env) = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -208,11 +208,11 @@ public:
    Formals get_formals() { return formals; }
    Symbol get_return_type() { return return_type; }
    Expression get_expr() { return expr; }
-   bool checkInheritedMethods(method_class parentFeat);
+   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat);
    bool is_method(){ return true; }
    void addToTable(Environment *env);
    Feature copy_Feature();
-   Symbol checkFeatureType(ClassTable *classtable, Environment *env);
+   void checkFeatureType(ClassTable *classtable, Environment *env);
 
    void dump(ostream& stream, int n);
 
@@ -242,9 +242,9 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_init() { return init; }
    bool is_method() { return false; }
-   bool checkInheritedMethods(method_class parentFeat) { return false; }   // for security across feature classes   
+   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat) { return false; }   // for security across feature classes   
    void addToTable(Environment *env);
-   Symbol checkFeatureType(ClassTable *classtable, Environment *env);
+   void checkFeatureType(ClassTable *classtable, Environment *env);
    void dump(ostream& stream, int n);
 
 #ifdef Feature_SHARED_EXTRAS
@@ -836,6 +836,7 @@ public:
       name = a1;
    }
    Expression copy_Expression();
+   Symbol checkType(ClassTable *classtable, Environment *env);
    void dump(ostream& stream, int n);
 
 #ifdef Expression_SHARED_EXTRAS

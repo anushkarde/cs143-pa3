@@ -59,8 +59,8 @@ class Environment {
     Environment *copyEnvironment() {  return new Environment(methodTable, attribTable, currentClass); }
     void setCurrentClass(Symbol curClass) { currentClass = curClass; }
     Symbol getCurrentClass() { return currentClass; }
-    SymbolTable<Symbol, method_class> getMethodTable () { return methodTable; }
-    SymbolTable<Symbol, Symbol> getAttribTable () { return attribTable; }
+    SymbolTable<Symbol, method_class> &getMethodTable () { return methodTable; }
+    SymbolTable<Symbol, Symbol> &getAttribTable () { return attribTable; }
 };
 
 
