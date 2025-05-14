@@ -713,10 +713,10 @@ Symbol loop_class::checkType(ClassTable *classtable, Environment *env) {
 /** type checking for branches of cases */
 Symbol branch_class::checkCaseType(ClassTable *classtable, Environment *env) {
   SymbolTable<Symbol, Symbol> curAttribTable = env->getAttribTable();
-  curAttribTable.enterscope();
-  curAttribTable.addid(name, type_decl); 
+  curAttribTable->enterscope();
+  curAttribTable->addid(name, type_decl); 
   Symbol expr_type = expr->checkType(classtable, env);
-  curAttribTable.exitscope();
+  curAttribTable->exitscope();
   return expr_type;
 }
 
