@@ -1,9 +1,7 @@
 class A {
-    a: B;
     func(x: Int): Bool {
         {
-            a <- (new B);
-            a.fuck();
+            let x: Bool <- x+1, x:String <- true in true;
         }
     };
 };
