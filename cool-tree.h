@@ -58,7 +58,7 @@ public:
    virtual Symbol get_name() = 0;
    virtual bool is_method() = 0;
    virtual void addToTable(Environment *env) = 0;
-   virtual bool checkInheritedMethods(ClassTable *classtable, method_class *parent) = 0;
+   virtual bool checkInheritedMethods(ClassTable *classtable, method_class *parent, Symbol curClass) = 0;
    virtual void checkFeatureType(ClassTable *classtable, Environment *env) = 0; 
 
 #ifdef Feature_EXTRAS
@@ -208,7 +208,7 @@ public:
    Formals get_formals() { return formals; }
    Symbol get_return_type() { return return_type; }
    Expression get_expr() { return expr; }
-   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat);
+   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat, Symbol curClass);
    bool is_method(){ return true; }
    void addToTable(Environment *env);
    Feature copy_Feature();
@@ -242,7 +242,7 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_init() { return init; }
    bool is_method() { return false; }
-   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat) { return false; }   // for security across feature classes   
+   bool checkInheritedMethods(ClassTable *classtable, method_class *parentFeat, Symbol curClass) { return false; }   // for security across feature classes   
    void addToTable(Environment *env);
    void checkFeatureType(ClassTable *classtable, Environment *env);
    void dump(ostream& stream, int n);
