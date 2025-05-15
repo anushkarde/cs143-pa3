@@ -250,7 +250,7 @@ void ClassTable::mapEnvironments() {
         if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
           semant_error(classNameMap[curClass]) << "Method " << curFeat->get_name() << " is multiply defined." << endl;
         } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
-          if (curFeat->checkInheritedMethods(this, curEnv->getMethodTable().lookup(curFeat->get_name()))) {
+          if (curFeat->checkInheritedMethods(this, curEnv->getMethodTable().lookup(curFeat->get_name()), curClass)) {
             curFeat->addToTable(curEnv);
           }
         } else {
@@ -318,16 +318,17 @@ Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2, Symbol selfTy
   This method checks whether the current method is inherited properly from
   the passed in parent method. 
  */
-bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *parentFeat) {
+bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *parentFeat, Symbol curClass) {
+  Symbol curFile = classtable->classNameMap[curClass]->get_filename();   // filename for calling errors
   Formals childFormals = this->get_formals();
   Formals parentFormals = parentFeat->get_formals();
   /** we also want both methods to have the same return type */ 
   if (this->get_return_type() != parentFeat->get_return_type()) {
-    classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << "." << endl;
+    classtable->semant_error(curFile, this) << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << "." << endl;
     return false;
   }
   if (childFormals->len() != parentFormals->len()) {
-    classtable->semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << "." << endl;
+    classtable->semant_error(curFile, this) << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << "." << endl;
     return false;
   }
   /** keep track of parent formal types, we want same # and types of arguments */
@@ -339,7 +340,7 @@ bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *p
     Symbol origType = parentForm->get_type();
     Symbol childType = childForm->get_type();
     if (childType != origType) {
-      classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", parameter type " << childType->get_string() << " is different from original type " << origType->get_string() << endl;
+      classtable->semant_error(curFile, this) << "In redefined method " << parentFeat->get_name() << ", parameter type " << childType->get_string() << " is different from original type " << origType->get_string() << endl;
       return false;
     }
   }
