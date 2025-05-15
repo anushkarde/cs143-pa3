@@ -98,7 +98,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     Class_ current = classes->nth(i);
     Symbol name = current->get_name();
     Symbol parent = current->get_parent();
-    if (name == SELF_TYPE || name == Object || name == Int || name == Str || name == Bool) {  // cannot redefine basic classes
+    if (name == SELF_TYPE || name == Object || name == Int || name == Str || name == Bool || name == IO) {  // cannot redefine basic classes
       semant_error(current) << "Redefinition of basic class " << name->get_string() << "." << endl;
       return;
     }
@@ -546,7 +546,7 @@ void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
 
   /** check if the declared type exists */
-  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end()) {
+  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end() && type_decl != SELF_TYPE) {
     classtable->semant_error(curFile, this) << "Class " << type_decl->get_string() << " of attribute " << name->get_string() << " is undefined." << endl;
   }
 
@@ -873,7 +873,7 @@ Symbol plus_class::checkType(ClassTable *classtable, Environment *env) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "+" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " + " << e2_type->get_string() << endl;
   }
   return type;
 }
@@ -887,7 +887,7 @@ Symbol sub_class::checkType(ClassTable *classtable, Environment *env) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "-" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " - " << e2_type->get_string() << endl;
   }
   return type;
 }
@@ -901,7 +901,7 @@ Symbol mul_class::checkType(ClassTable *classtable, Environment *env) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "*" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " * " << e2_type->get_string() << endl;
   }
   return type;
 }
@@ -915,7 +915,7 @@ Symbol divide_class::checkType(ClassTable *classtable, Environment *env) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "/" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " / " << e2_type->get_string() << endl;
   }
   return type;
 }
@@ -940,7 +940,7 @@ Symbol lt_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type != Int || e2_type != Int) {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "<" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " < " << e2_type->get_string() << endl;
   } else {
     type = Bool;
   }
@@ -973,7 +973,7 @@ Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type != Int || e2_type != Int) {
     type = _BOTTOM_;
-    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "<=" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " <= " << e2_type->get_string() << endl;
   } else {
     type = Bool;
   }
