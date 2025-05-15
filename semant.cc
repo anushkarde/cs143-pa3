@@ -223,6 +223,11 @@ std::vector<Symbol> ClassTable::topSortClasses() {
   return topSorted;
 }
 
+/*
+  This function creates the relevant method table and attribute tables for 
+  each class, based on their parent method tables as well. We use a topological
+  sort to ensure that this is performed in order.
+*/
 void ClassTable::mapEnvironments() {
   for (Symbol curClass : topSortedClasses) {
     Environment *curEnv = nullptr;
@@ -264,6 +269,9 @@ void ClassTable::mapEnvironments() {
         }               
       }
     }
+    if (curClass == Main && curEnv->getMethodTable().probe(main_meth) == NULL) {
+      semant_error(classNameMap[curClass]) << "No \'main\' method in class Main." << endl;
+    }
     classEnvTable[curClass] = curEnv;
   }
 }
@@ -304,7 +312,11 @@ Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2) {
 bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *parentFeat) {
   Formals childFormals = this->get_formals();
   Formals parentFormals = parentFeat->get_formals();
-  bool validOverride = true;
+  /** we also want both methods to have the same return type */ 
+  if (this->get_return_type() != parentFeat->get_return_type()) {
+    classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << endl;
+    return false;
+  }
   if (childFormals->len() != parentFormals->len()) {
     classtable->semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << endl;
     return false;
@@ -319,15 +331,10 @@ bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *p
     Symbol childType = childForm->get_type();
     if (childType != origType) {
       classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", parameter type " << childType->get_string() << " is different from original type " << origType->get_string() << endl;
-      validOverride = false;
+      return false;
     }
   }
-  /** we also want both methods to have the same return type */ 
-  if (this->get_return_type() != parentFeat->get_return_type()) {
-    classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << endl;
-    validOverride = false;
-  }
-  return validOverride;
+  return true;
 }
 
 void ClassTable::doTypeCheck(Classes classes) {
@@ -529,7 +536,7 @@ void attr_class::addToTable(Environment *env) {
 void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   Symbol declared_type = type_decl;
   if (classtable->classEnvTable.find(declared_type) == classtable->classEnvTable.end()) {
-    classtable->semant_error() << "Class " << declared_type->get_string() << "of attribute " << name->get_string() << " is undefined." << endl;
+    classtable->semant_error() << "Class " << declared_type->get_string() << " of attribute " << name->get_string() << " is undefined." << endl;
   }
   SymbolTable<Symbol, Symbol>& attribTable = env->getAttribTable();
   attribTable.enterscope();
@@ -560,7 +567,7 @@ void method_class::checkFeatureType(ClassTable *classtable, Environment *env) {
       attribTable.addid(f->get_name(), &formType);
     }
     if (classtable->classEnvTable.find(f->get_type()) == classtable->classEnvTable.end()) {
-      classtable->semant_error() << "Class " << f->get_type()->get_string() << " of formal parameter" << f->get_name()->get_string() << "is undefined." << endl;
+      classtable->semant_error() << "Class " << f->get_type()->get_string() << " of formal parameter " << f->get_name()->get_string() << " is undefined." << endl;
     } 
   }
   Symbol inferType = expr->checkType(classtable, env);

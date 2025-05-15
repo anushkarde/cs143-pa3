@@ -3,21 +3,11 @@ class A{
 }; 
 
 class C inherits A {
-    a:Bool;
+    fun(): Bool {
+        (new Main).main(3, 6)
+    };
 };
 
-class B inherits D {
-
-};
-
-class D inherits F {
-
-};
-
-class F inherits B {
-
-};
-
-class Main{
-    main():Bool{false};
+class Main inherits A {
+    main(x: D, x: E): Int { x<-3 };
 };
