@@ -248,7 +248,7 @@ void ClassTable::mapEnvironments() {
       Feature curFeat = featureList->nth(i);
       if (curFeat->is_method()) { 
         if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
-          semant_error(classNameMap[curClass]) << "Method " << curFeat->get_name() << " is multiply defined." << endl;
+          semant_error(classNameMap[curClass]->get_filename(), curFeat) << "Method " << curFeat->get_name() << " is multiply defined." << endl;
         } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
           if (curFeat->checkInheritedMethods(this, curEnv->getMethodTable().lookup(curFeat->get_name()), curClass)) {
             curFeat->addToTable(curEnv);
