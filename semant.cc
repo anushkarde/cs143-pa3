@@ -240,6 +240,7 @@ void ClassTable::mapEnvironments() {
     } else {
       curEnv = new Environment(curClass);
     }
+    cout << "CURRENT CLASS IS " << curEnv->getCurrentClass() << endl;
     Features featureList = classNameMap[curClass]->get_features();
     /** iterate over features */
     curEnv->getMethodTable().enterscope(); 
@@ -346,11 +347,11 @@ bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *p
 
 void ClassTable::doTypeCheck(Classes classes) {
   /** go through all classes, perform type checking using their environments */
-  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
-    Features featureList = classes->nth(i)->get_features();
+  for (int k = classes->first(); classes->more(k); k = classes->next(k)) {
+    Features featureList = classes->nth(k)->get_features();
     for (int i = featureList->first(); featureList->more(i); i = featureList->next(i)) {
       Feature f = featureList->nth(i);
-      f->checkFeatureType(this, classEnvTable[classes->nth(i)->get_name()]);
+      f->checkFeatureType(this, classEnvTable[classes->nth(k)->get_name()]);
     }
   }
 }
@@ -564,6 +565,11 @@ void method_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   attribTable.enterscope();
   attribTable.addid(self, &SELF_TYPE);
   std::set<Symbol> paramNames = {};
+  cout << " THE CLASS HERE IS " << env->getCurrentClass()->get_string() << endl;
+  if (env->getCurrentClass() == Main && name == main_meth && formals->len() != 0) {
+    cout << "HERE" << endl;
+    classtable->semant_error() << "\'main\' method in class Main should have no arguments." << endl;
+  }
   for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
     Formal f = formals->nth(i);
     if (paramNames.find(f->get_name()) != paramNames.end()) {

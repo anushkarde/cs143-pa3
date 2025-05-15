@@ -1,8 +1,8 @@
-class A{
+class A {
     a:Int;
 }; 
 
-class C inherits A {
+class C {
     fun(): Bool {
         (new Main).main(3, 6)
     };
