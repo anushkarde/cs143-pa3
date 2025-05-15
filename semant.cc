@@ -165,7 +165,7 @@ bool ClassTable::checkInheritance(Classes classes) {
         check = false;
       }
       else if (visitedClasses.find(parent) != visitedClasses.end()) {   // if we have already seen the class we are visiting now, we have a cycle!
-        semant_error(current) << "Class " << name->get_string() << " or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;
+        semant_error(current) << "Class " << name->get_string() << ", or an ancestor of " << name->get_string() << ", is involved in an inheritance cycle." << endl;
         check = false;
         inheritanceGood = false;
       } else {
