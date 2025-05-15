@@ -9,5 +9,5 @@ class A {
 };
 
 class Main inherits A {
-    main(): Int {1};
+    main(self: A): Int {1};
 };

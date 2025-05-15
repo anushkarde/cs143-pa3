@@ -259,11 +259,11 @@ void ClassTable::mapEnvironments() {
       }
       else {  
         if (curFeat->get_name() == self) {
-          semant_error(classNameMap[curClass]) << "\'self\' cannot be the name of an attribute." << endl;
+          semant_error(classNameMap[curClass]->get_filename(), curFeat) << "\'self\' cannot be the name of an attribute." << endl;
         } else if (curEnv->getAttribTable().probe(curFeat->get_name()) != NULL) {
-          semant_error(classNameMap[curClass]) << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
+          semant_error(classNameMap[curClass]->get_filename(), curFeat) << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
         } else if (curEnv->getAttribTable().lookup(curFeat->get_name()) != NULL) {
-          semant_error(classNameMap[curClass]) << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
+          semant_error(classNameMap[curClass]->get_filename(), curFeat) << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
         } else {
           curFeat->addToTable(curEnv);
         }               

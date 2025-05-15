@@ -1,7 +1,7 @@
 class A {
     func(x: Int): Bool {
         {
-            let x: Bool <- x+1, x:String <- true in true;
+            let x: Bool <- x+1, self:String <- true in true;
         }
     };
 };
