@@ -27,7 +27,6 @@ class ClassTable : public SymbolTable<Symbol, InheritanceNode> {
 private:
   int semant_errors;           // counts the number of semantic errors
   void install_basic_classes();
-  std::map<Symbol, Class_> classNameMap {};    // maps each class to its name
   std::ostream& error_stream;
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
@@ -40,6 +39,7 @@ public:
   ClassTable(Classes);
   Symbol leastCommonAncestor(Symbol type1, Symbol type2, Symbol selfTypeClass);
   std::map<Symbol, Environment*> classEnvTable {};
+  std::map<Symbol, Class_> classNameMap {};    // maps each class to its name
   int errors() { return semant_errors; }
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);

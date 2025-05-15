@@ -240,7 +240,6 @@ void ClassTable::mapEnvironments() {
     } else {
       curEnv = new Environment(curClass);
     }
-    cout << "CURRENT CLASS IS " << curEnv->getCurrentClass() << endl;
     Features featureList = classNameMap[curClass]->get_features();
     /** iterate over features */
     curEnv->getMethodTable().enterscope(); 
@@ -283,7 +282,9 @@ void ClassTable::mapEnvironments() {
 Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2, Symbol selfTypeClass) {
   if (type1 == type2) { return type1; }
   if (type1 == _BOTTOM_) { return type2; }
-  if (type2 == _BOTTOM_) { return type2; }
+  if (type2 == _BOTTOM_) { return type1; }
+  if (type1 == No_type) { return type2; }
+  if (type2 == No_type) { return type1; }
 
   if (type1 == SELF_TYPE) {
   type1 = selfTypeClass;
@@ -322,11 +323,11 @@ bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *p
   Formals parentFormals = parentFeat->get_formals();
   /** we also want both methods to have the same return type */ 
   if (this->get_return_type() != parentFeat->get_return_type()) {
-    classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << endl;
+    classtable->semant_error() << "In redefined method " << parentFeat->get_name() << ", return type " << this->get_return_type()->get_string() << " is different from original return type " << parentFeat->get_return_type()->get_string() << "." << endl;
     return false;
   }
   if (childFormals->len() != parentFormals->len()) {
-    classtable->semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << endl;
+    classtable->semant_error() << "Incompatible number of formal parameters in redefined method " << parentFeat->get_name() << "." << endl;
     return false;
   }
   /** keep track of parent formal types, we want same # and types of arguments */
@@ -532,80 +533,96 @@ void program_class::semant() {
 
 /** adding to method table for the given environment */
 void method_class::addToTable(Environment *env) {
-  env->getMethodTable().addid(name, this);
+  env->getMethodTable().addid(name, new method_class(name, formals, return_type, expr));
 }
 
 /** adding to the attribution table for the given environemnt */
 void attr_class::addToTable(Environment *env) {
-  env->getAttribTable().addid(name, &type_decl);
+  env->getAttribTable().addid(name, new Symbol(type_decl));
 }
 
 /** type check an attribute */
 void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
-  Symbol declared_type = type_decl;
-  if (classtable->classEnvTable.find(declared_type) == classtable->classEnvTable.end()) {
-    classtable->semant_error() << "Class " << declared_type->get_string() << " of attribute " << name->get_string() << " is undefined." << endl;
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
+
+  /** check if the declared type exists */
+  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end()) {
+    classtable->semant_error(curFile, this) << "Class " << type_decl->get_string() << " of attribute " << name->get_string() << " is undefined." << endl;
   }
+
   SymbolTable<Symbol, Symbol>& attribTable = env->getAttribTable();
   attribTable.enterscope();
-  attribTable.addid(self, &SELF_TYPE);
+  attribTable.addid(self, new Symbol(SELF_TYPE));
   Symbol expr_type = init->checkType(classtable, env);
   if (expr_type == No_type) {
     return;
   }
-  if (classtable->leastCommonAncestor(expr_type, declared_type, env->getCurrentClass()) != declared_type) {
-    classtable->semant_error() << "Inferred type of " << expr_type->get_string() << " of initialization of attribute " << name->get_string() << " does not conform to declared type " << declared_type->get_string() << "." << endl;
+  if (classtable->leastCommonAncestor(expr_type, type_decl, env->getCurrentClass()) != type_decl) {
+    classtable->semant_error(curFile, this) << "Inferred type of " << expr_type->get_string() << " of initialization of attribute " << name->get_string() << " does not conform to declared type " << type_decl->get_string() << "." << endl;
   }
   attribTable.exitscope();
 }
 
 /** type check a method */
 void method_class::checkFeatureType(ClassTable *classtable, Environment *env) { 
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   SymbolTable<Symbol, Symbol>& attribTable = env->getAttribTable();
   attribTable.enterscope();
-  attribTable.addid(self, &SELF_TYPE);
-  std::set<Symbol> paramNames = {};
-  cout << " THE CLASS HERE IS " << env->getCurrentClass()->get_string() << endl;
+  attribTable.addid(self, new Symbol(SELF_TYPE));
+  std::set<Symbol> paramNames = {};     //store formal names. we cannot have more than one formal with the same name
+
+  /** if we are in the main class, the main method should not have any formals */
   if (env->getCurrentClass() == Main && name == main_meth && formals->len() != 0) {
-    cout << "HERE" << endl;
-    classtable->semant_error() << "\'main\' method in class Main should have no arguments." << endl;
+    classtable->semant_error(curFile, this) << "\'main\' method in class Main should have no arguments." << endl;
   }
+
+  /** iterate over formals and check each formal */
   for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
     Formal f = formals->nth(i);
+    if (f->get_name() == self) {    // check for parameter name self
+      classtable->semant_error(curFile, this) << "\'self\' cannot be the name of a formal parameter." << endl;
+    }
+    if (f->get_type() == SELF_TYPE) {         // if parameter has type self type, throw error
+      classtable->semant_error(curFile, this) << "Formal parameter " << f->get_name()->get_string() << " cannot have type SELF_TYPE." << endl;
+    } else if (classtable->classEnvTable.find(f->get_type()) == classtable->classEnvTable.end()) {     // check that the type of the parameter exists
+      classtable->semant_error(curFile, this) << "Class " << f->get_type()->get_string() << " of formal parameter " << f->get_name()->get_string() << " is undefined." << endl;
+    } 
+
+    /** if our parameter has not already been defined, add it to the attribut eenvironment */
     if (paramNames.find(f->get_name()) != paramNames.end()) {
-      classtable->semant_error() << "Formal parameter " << f->get_name()->get_string() << " is multiply defined." << endl;
+      classtable->semant_error(curFile, this) << "Formal parameter " << f->get_name()->get_string() << " is multiply defined." << endl;
     } else {
       paramNames.insert(f->get_name());
       Symbol formType = f->get_type();
-      attribTable.addid(f->get_name(), &formType);
+      attribTable.addid(f->get_name(), new Symbol(formType));
     }
-    if (classtable->classEnvTable.find(f->get_type()) == classtable->classEnvTable.end()) {
-      classtable->semant_error() << "Class " << f->get_type()->get_string() << " of formal parameter " << f->get_name()->get_string() << " is undefined." << endl;
-    } 
   }
-  Symbol inferType = expr->checkType(classtable, env);
-  Symbol decl_ret_type = return_type;
-  // if (return_type == SELF_TYPE) { decl_ret_type = env->getCurrentClass(); }
-  if (classtable->classEnvTable.find(decl_ret_type) == classtable->classEnvTable.end()) { 
-    classtable->semant_error() << "Undefined return type " << return_type->get_string() << " in method " << name->get_string() << "." << endl;
-  } else if (classtable->leastCommonAncestor(inferType, decl_ret_type, env->getCurrentClass()) != decl_ret_type) {
-    classtable->semant_error() << "Inferred return type " << inferType->get_string() << " of method " << name->get_string() << " does not conform to declared return type " << return_type->get_string() << endl;
+  Symbol inferType = expr->checkType(classtable, env);          // check the inferred return type of the method
+  
+  if (classtable->classEnvTable.find(return_type) == classtable->classEnvTable.end() && return_type != SELF_TYPE) { 
+    classtable->semant_error(curFile, this) << "Undefined return type " << return_type->get_string() << " in method " << name->get_string() << "." << endl;
+  } else if (classtable->leastCommonAncestor(inferType, return_type, env->getCurrentClass()) != return_type) {      // check that inferred type is a child of the declared return type
+    classtable->semant_error(curFile, this) << "Inferred return type " << inferType->get_string() << " of method " << name->get_string() << " does not conform to declared return type " << return_type->get_string() << endl;
   }
   attribTable.exitscope();
 }
 
 /** type checking for assignment expression */
 Symbol assign_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();      // for calling errors
   SymbolTable<Symbol, Symbol>& curAttribTable = env->getAttribTable();
   Symbol inferType = expr->checkType(classtable, env);
-  if (curAttribTable.lookup(name) == NULL) {
-    classtable->semant_error() << "Assignment to undeclared variable " << name->get_string() << "." << endl;
+  if (name == self) { // cannot assign to self
+    classtable->semant_error(curFile, this) << "Cannot assign to \'self\'." << endl;
+    type = _BOTTOM_;
+  }  else if (curAttribTable.lookup(name) == NULL) {
+    classtable->semant_error(curFile, this) << "Assignment to undeclared variable " << name->get_string() << "." << endl;
     type = _BOTTOM_;
   } else {
     if (classtable->leastCommonAncestor(inferType, *(curAttribTable.lookup(name)), env->getCurrentClass()) == *(curAttribTable.lookup(name))) {
       type = inferType;
     } else {
-      classtable->semant_error() << "Type " << inferType->get_string() << " of assigned expression does not conform to declared type " << (*(curAttribTable.lookup(name)))->get_string() << " of identifier " << name->get_string() << "." << endl;
+      classtable->semant_error(curFile, this) << "Type " << inferType->get_string() << " of assigned expression does not conform to declared type " << (*(curAttribTable.lookup(name)))->get_string() << " of identifier " << name->get_string() << "." << endl;
       type = _BOTTOM_;
     }
   }
@@ -614,28 +631,33 @@ Symbol assign_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for static dispatch */
 Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env) {
-  Symbol origCallerType = expr->checkType(classtable, env);
-  Symbol callerType = origCallerType;
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
+  Symbol callerType = expr->checkType(classtable, env);
   std::vector<Symbol> paramTypes = {};
+  /** accumulate all the passed in parameters */
   for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
     Expression curExpr = actual->nth(i);
     paramTypes.push_back(curExpr->checkType(classtable, env));
   }
-  if (callerType == SELF_TYPE) {
-    callerType = env->getCurrentClass();
-  }
-
   /** if the caller type doesn't exist throw an error */
-  if (classtable->classEnvTable.find(callerType) == classtable->classEnvTable.end()) {
-    classtable->semant_error() << "Static dispatch on type " << callerType->get_string() << "not allowed." << endl;
+  if (classtable->classEnvTable.find(callerType) == classtable->classEnvTable.end() && callerType != SELF_TYPE) {
+    classtable->semant_error(curFile, this) << "Static dispatch on type " << callerType->get_string() << "not allowed." << endl;
     type = _BOTTOM_;
     return type;
   }
   
   /** if the method we are trying to call is not one we inherit, throw error */
   Symbol parentType = type_name;
-  if (classtable->leastCommonAncestor(parentType, callerType, env->getCurrentClass()) !=  parentType) {
-    classtable->semant_error() << "Expression type " << callerType->get_string() << "does not conform to declared static dispatch type " << parentType->get_string() << "." << endl;
+  if (parentType == SELF_TYPE) {          // cannot dispatch at SELF_TYPE
+    classtable->semant_error(curFile, this) << "Static dispatch to SELF_TYPE." << endl;
+    type = _BOTTOM_;
+    return type;
+  } else if (classtable->classEnvTable.find(parentType) == classtable->classEnvTable.end()) {
+    classtable->semant_error(curFile, this) << "Static dispatch to undefined class " << parentType->get_string() << endl;
+    type = _BOTTOM_;
+    return type;
+  } else if (classtable->leastCommonAncestor(parentType, callerType, env->getCurrentClass()) !=  parentType) {
+    classtable->semant_error(curFile, this) << "Expression type " << callerType->get_string() << " does not conform to declared static dispatch type " << parentType->get_string() << "." << endl;
     type = _BOTTOM_;
     return type;
   }
@@ -643,34 +665,36 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
   /**  get method from parent table */
   Environment *parentEnv = classtable->classEnvTable[parentType];
   SymbolTable<Symbol, method_class>& parentMethTable = parentEnv->getMethodTable();
+  /** if method doesn't exist, throw error */
   if (parentMethTable.lookup(name) == NULL) {  
-    classtable->semant_error() << "Static dispatch to undefined method " << name->get_string() << "." << endl;
+    classtable->semant_error(curFile, this) << "Static dispatch to undefined method " << name->get_string() << "." << endl;
     type = _BOTTOM_;
-  } else {
-    method_class parentMethod = *(parentMethTable.lookup(name));
-    Formals forms = parentMethod.get_formals();
-    if (size_t(forms->len()) != paramTypes.size()) {
-      classtable->semant_error() << "Method " << name->get_string() << " called with wrong number of arguments." << endl;
+    return type;
+  }
+  method_class parentMethod = *(parentMethTable.lookup(name));
+  Formals forms = parentMethod.get_formals();
+  /** if method is called with the wrong number of arguments, throw error */
+  if (size_t(forms->len()) != paramTypes.size()) {
+    classtable->semant_error(curFile, this) << "Method " << name->get_string() << " invoked with wrong number of arguments." << endl;
+    type = _BOTTOM_;
+    return type;
+  }
+  /** iterate through formals and check types */
+  bool wrongParamTypes = false;
+  for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
+    Formal form = forms->nth(i);
+    Symbol form_type = forms->nth(i)->get_type();
+    if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
+      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
       type = _BOTTOM_;
+      wrongParamTypes = true;
+    }
+  }
+  if (wrongParamTypes == false) {
+    if (parentMethod.get_return_type() == SELF_TYPE) {
+      type = callerType;
     } else {
-      /** iterate through formals and check types */
-      bool error_found = false;
-      for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
-        Formal form = forms->nth(i);
-        Symbol form_type = forms->nth(i)->get_type();
-        if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
-          classtable->semant_error() << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
-          type = _BOTTOM_;
-          error_found = true;
-        }
-      }
-      if (!error_found) {
-        if (parentMethod.get_return_type() == SELF_TYPE) {
-          type = origCallerType;
-        } else {
-          type = parentMethod.get_return_type();
-        }
-      }
+      type = parentMethod.get_return_type();
     }
   }
   return type; 
@@ -679,6 +703,7 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
 
 /** type checking for dispatch */
 Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol origCallerType = expr->checkType(classtable, env);
   Symbol callerType = origCallerType;
   /** collect all the passed in parameter types */
@@ -693,43 +718,45 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
   /** if the caller type doesn't exist throw an error */
   if (classtable->classEnvTable.find(callerType) == classtable->classEnvTable.end()) {
     if (callerType == _BOTTOM_) {
-      classtable->semant_error() << "Dispatch on type " << callerType->get_string() << "not allowed. The type _bottom is the type of throw expressions." << endl;
+      classtable->semant_error(curFile, this) << "Dispatch on type " << callerType->get_string() << "not allowed. The type _bottom is the type of throw expressions." << endl;
     } else {
-      classtable->semant_error() << "Dispatch on undefined class " << callerType->get_string() << "." << endl;
+      classtable->semant_error(curFile, this) << "Dispatch on undefined class " << callerType->get_string() << "." << endl;
     }
     type = _BOTTOM_;
     return type;
   }
   Environment *callerEnv = classtable->classEnvTable[callerType];
   SymbolTable<Symbol, method_class>& callerMethTable = callerEnv->getMethodTable();
+  /** if the method we are trying to call doesn't exist, throw an error */
   if (callerMethTable.lookup(name) == NULL) {  
-    classtable->semant_error() << "Dispatch to undefined method " << name->get_string() << "." << endl;
+    classtable->semant_error(curFile, this) << "Dispatch to undefined method " << name->get_string() << "." << endl;
     type = _BOTTOM_;
-  } else {
-    method_class callerMethod = *(callerMethTable.lookup(name));
-    Formals forms = callerMethod.get_formals();
-    if (size_t(forms->len()) != paramTypes.size()) {
-      classtable->semant_error() << "Method " << name->get_string() << " called with wrong number of arguments." << endl;
+    return type;
+  }
+  method_class callerMethod = *(callerMethTable.lookup(name));
+  Formals forms = callerMethod.get_formals();
+  /** if the size of our arguments differ, we are calling with wrong number of arguments */
+  if (size_t(forms->len()) != paramTypes.size()) {
+    classtable->semant_error(curFile, this) << "Method " << name->get_string() << " called with wrong number of arguments." << endl;
+    type = _BOTTOM_;
+    return type;
+  }
+  /** iterate through formals and check types */
+  bool wrongParamTypes = false;
+  for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
+    Formal form = forms->nth(i);
+    Symbol form_type = forms->nth(i)->get_type();
+    if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
+      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
       type = _BOTTOM_;
+      wrongParamTypes = true;
+    }
+  }
+  if (wrongParamTypes == false) {
+    if (callerMethod.get_return_type() == SELF_TYPE) {
+    type = origCallerType;
     } else {
-      /** iterate through formals and check types */
-      bool error_found = false;
-      for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
-        Formal form = forms->nth(i);
-        Symbol form_type = forms->nth(i)->get_type();
-        if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
-          classtable->semant_error() << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
-          type = _BOTTOM_;
-          error_found = true;
-        }
-      }
-      if (!error_found) {
-        if (callerMethod.get_return_type() == SELF_TYPE) {
-          type = origCallerType;
-        } else {
-          type = callerMethod.get_return_type();
-        }
-      }
+      type = callerMethod.get_return_type();
     }
   }
   return type; 
@@ -737,24 +764,23 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
 
 /**  type checking for conditional statements */
 Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
+  /** throw error if the predicate is not a boolean */
   if (pred->checkType(classtable, env) != Bool) {
-    classtable->semant_error() << "If statements must have a boolean predicate." << endl;
+    classtable->semant_error(curFile, this) << "Predicate of \'if\' does not have type Bool." << endl;
   } else {
     Symbol type_e1 = then_exp->checkType(classtable, env);
     Symbol type_e2 = else_exp->checkType(classtable, env);
-    if (type_e2 == No_type) {
-      type = type_e1;
-    } else {
-      type = classtable->leastCommonAncestor(type_e1, type_e2, env->getCurrentClass());
-    }
+    type = classtable->leastCommonAncestor(type_e1, type_e2, env->getCurrentClass());
   }
   return type;
 }
 
 /** type checking for loops */
 Symbol loop_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   if (pred->checkType(classtable, env) != Bool) {
-    classtable->semant_error() << "Loop condition does not have type Bool." << endl;
+    classtable->semant_error(curFile, this) << "Loop condition does not have type Bool." << endl;
   }
   body->checkType(classtable, env);
   type = Object;
@@ -763,9 +789,19 @@ Symbol loop_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for branches of cases */
 Symbol branch_class::checkCaseType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   SymbolTable<Symbol, Symbol>& curAttribTable = env->getAttribTable();
   curAttribTable.enterscope();
-  curAttribTable.addid(name, &type_decl); 
+  /** if the case branch is declared with an undefined type or self type, throw error */
+  if (type_decl == SELF_TYPE) {
+    classtable->semant_error(curFile, this) << "Identifier " << name->get_string() << " declared with type SELF_TYPE in case branch." << endl;
+  } else if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end()) {
+    classtable->semant_error(curFile, this) << "Class " << type_decl->get_string() << " of case branch is undefined." << endl;
+  }
+  if (name == self) {       /** cannot have self binding in case expression */
+    classtable->semant_error(curFile, this) << "\'self\' bound in \'case\'." << endl;
+  }
+  curAttribTable.addid(name, new Symbol(type_decl)); 
   Symbol expr_type = expr->checkType(classtable, env);
   curAttribTable.exitscope();
   return expr_type;
@@ -773,6 +809,7 @@ Symbol branch_class::checkCaseType(ClassTable *classtable, Environment *env) {
 
 /** type checking for typcase */
 Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol firstType = expr->checkType(classtable, env);
   std::set<Symbol> branchTypes;
   /** iterate over cases and check types for each case */
@@ -781,7 +818,7 @@ Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
     Symbol curCaseType = c->checkCaseType(classtable, env);
     Symbol decl_type = c->get_type_decl();
     if (branchTypes.find(decl_type) != branchTypes.end()) {
-      classtable->semant_error() << "Duplicate branch " << decl_type->get_string() << " in case statement." << endl;
+      classtable->semant_error(curFile, this) << "Duplicate branch " << decl_type->get_string() << " in case statement." << endl;
     } else {
       branchTypes.insert(decl_type);
     }
@@ -802,17 +839,20 @@ Symbol block_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for let bindings */
 Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1Type = init->checkType(classtable, env);
   SymbolTable<Symbol, Symbol>& attribTable = env->getAttribTable();     // enter new scope for let bindings
   attribTable.enterscope();
-  attribTable.addid(identifier, &type_decl);
-  Symbol lcaCheck = type_decl;
+  if (identifier == self) {
+    classtable->semant_error(curFile, this) << "\'self\' cannot be bound in a \'let\' expression." << endl;
+  }
+  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end()) {
+    classtable->semant_error(curFile, this) << "Class " << type_decl->get_string() << " of let-bound identifier " << identifier->get_string() << " is undefined." << endl;
+  }
+  attribTable.addid(identifier, new Symbol(type_decl));
   if (e1Type != No_type) {
-    // if (type_decl == SELF_TYPE) {
-    //   lcaCheck = env->getCurrentClass();
-    // }
-    if (classtable->leastCommonAncestor(e1Type, lcaCheck, env->getCurrentClass()) != lcaCheck) {
-      classtable->semant_error() << "Inferred type " << e1Type->get_string() << " of initialization of " << identifier->get_string() << " does not conform to identifier\'s declared type " << type_decl->get_string() << "." << endl;
+    if (classtable->leastCommonAncestor(e1Type, type_decl, env->getCurrentClass()) != type_decl) {
+      classtable->semant_error(curFile, this) << "Inferred type " << e1Type->get_string() << " of initialization of " << identifier->get_string() << " does not conform to identifier\'s declared type " << type_decl->get_string() << "." << endl;
     }
   }
   type = body->checkType(classtable, env);
@@ -822,75 +862,81 @@ Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for plus class */
 Symbol plus_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type == Int && e2_type == Int) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "+" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "+" << e2_type->get_string() << endl;
   }
   return type;
 }
 
 /** type checking for sub class */
 Symbol sub_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type == Int && e2_type == Int) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "-" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "-" << e2_type->get_string() << endl;
   }
   return type;
 }
 
 /** type checking for mult class */
 Symbol mul_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type == Int && e2_type == Int) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "*" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "*" << e2_type->get_string() << endl;
   }
   return type;
 }
 
 /** type checking for divide class */
 Symbol divide_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type == Int && e2_type == Int) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "/" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "/" << e2_type->get_string() << endl;
   }
   return type;
 }
 
 /** type checking for neg class */
 Symbol neg_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   if (e1_type == Int) {
     type = Int;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "Argument of \'~\' has type " << e1_type->get_string() << " instead of Int." << endl;
+    classtable->semant_error(curFile, this) << "Argument of \'~\' has type " << e1_type->get_string() << " instead of Int." << endl;
   }
   return type;
 }
 
 /** type checking for lt class */
 Symbol lt_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type != Int || e2_type != Int) {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "<" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "<" << e2_type->get_string() << endl;
   } else {
     type = Bool;
   }
@@ -899,13 +945,14 @@ Symbol lt_class::checkType(ClassTable *classtable, Environment *env) {
 
 /**  type checking for eq class */
 Symbol eq_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type == Int || e2_type == Int || e1_type == Str || e2_type == Str || e1_type == Bool || e2_type == Bool) {
     if (e1_type == e2_type) {
       type = Bool;
     } else {
-      classtable->semant_error() << "Illegal comparison with a basic type." << endl;
+      classtable->semant_error(curFile, this) << "Illegal comparison with a basic type." << endl;
       type = _BOTTOM_;
     }
   } else {
@@ -917,11 +964,12 @@ Symbol eq_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for leq class */ 
 Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
   if (e1_type != Int || e2_type != Int) {
     type = _BOTTOM_;
-    classtable->semant_error() << "non-Int arguments: " << e1_type->get_string() << "<=" << e2_type->get_string() << endl;
+    classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << "<=" << e2_type->get_string() << endl;
   } else {
     type = Bool;
   }
@@ -930,12 +978,13 @@ Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for NOT expressions */
 Symbol comp_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol expr_type = e1->checkType(classtable, env);
   if (expr_type == Bool) {
     type = Bool;
   } else {
     type = _BOTTOM_;
-    classtable->semant_error() << "Argument of \'not\' has type " << expr_type->get_string() << " instead of Bool." << endl;
+    classtable->semant_error(curFile, this) << "Argument of \'not\' has type " << expr_type->get_string() << " instead of Bool." << endl;
   }
   return type;
 }
@@ -960,8 +1009,11 @@ Symbol string_const_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for new_class */
 Symbol new__class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   if (type_name != SELF_TYPE && classtable->classEnvTable.find(type_name) == classtable->classEnvTable.end()) {
-    classtable->semant_error() << "\'new\' used with undefined class " << type_name->get_string() << "." << endl;
+    classtable->semant_error(curFile, this) << "\'new\' used with undefined class " << type_name->get_string() << "." << endl;
+    type = _BOTTOM_;
+    return type;
   }
   type = type_name;
   return type;
@@ -982,6 +1034,7 @@ Symbol no_expr_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** type checking for object identifiers */
 Symbol object_class::checkType(ClassTable *classtable, Environment *env) {
+  Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   type = _BOTTOM_;
   if (name == self) {
     type = SELF_TYPE;
@@ -992,7 +1045,7 @@ Symbol object_class::checkType(ClassTable *classtable, Environment *env) {
   if (env->getAttribTable().lookup(name) != NULL) {
     type = *(env->getAttribTable().lookup(name));
   } else {
-    classtable->semant_error() << "Undeclared identifier " << name->get_string() << ".";
+    classtable->semant_error(curFile, this) << "Undeclared identifier " << name->get_string() << ".";
   }
   return type;
 }
