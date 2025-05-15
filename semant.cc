@@ -127,7 +127,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
   mapEnvironments();
 
   /** type checking */
-  doTypeCheck();
+  doTypeCheck(classes);
 }
 
 /** 
@@ -243,7 +243,7 @@ void ClassTable::mapEnvironments() {
       Feature curFeat = featureList->nth(i);
       if (curFeat->is_method()) { 
         if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
-          semant_error() << "Method " << curFeat->get_name() << " is multiply defined." << endl;
+          semant_error(classNameMap[curClass]) << "Method " << curFeat->get_name() << " is multiply defined." << endl;
         } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
           if (curFeat->checkInheritedMethods(this, curEnv->getMethodTable().lookup(curFeat->get_name()))) {
             curFeat->addToTable(curEnv);
@@ -254,11 +254,11 @@ void ClassTable::mapEnvironments() {
       }
       else {  
         if (curFeat->get_name() == self) {
-          semant_error() << "\'self\' cannot be the name of an attribute." << endl;
-        } else if (curEnv->getMethodTable().probe(curFeat->get_name()) != NULL) {
-          semant_error() << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
-        } else if (curEnv->getMethodTable().lookup(curFeat->get_name()) != NULL) {
-          semant_error() << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
+          semant_error(classNameMap[curClass]) << "\'self\' cannot be the name of an attribute." << endl;
+        } else if (curEnv->getAttribTable().probe(curFeat->get_name()) != NULL) {
+          semant_error(classNameMap[curClass]) << "Attribute " << curFeat->get_name() << " is multiply defined in class." << endl;
+        } else if (curEnv->getAttribTable().lookup(curFeat->get_name()) != NULL) {
+          semant_error(classNameMap[curClass]) << "Attribute " << curFeat->get_name() << " is an attribute of an inherited class." << endl;
         } else {
           curFeat->addToTable(curEnv);
         }               
@@ -330,13 +330,13 @@ bool method_class::checkInheritedMethods(ClassTable *classtable, method_class *p
   return validOverride;
 }
 
-void ClassTable::doTypeCheck() {
+void ClassTable::doTypeCheck(Classes classes) {
   /** go through all classes, perform type checking using their environments */
-  for (Symbol curClass : topSortedClasses) {
-    Features featureList = classNameMap[curClass]->get_features();
+  for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    Features featureList = classes->nth(i)->get_features();
     for (int i = featureList->first(); featureList->more(i); i = featureList->next(i)) {
       Feature f = featureList->nth(i);
-      f->checkFeatureType(this, classEnvTable[curClass]);
+      f->checkFeatureType(this, classEnvTable[classes->nth(i)->get_name()]);
     }
   }
 }
@@ -956,7 +956,7 @@ Symbol isvoid_class::checkType(ClassTable *classtable, Environment *env) {
 
 /** no_expr has no type */ 
 Symbol no_expr_class::checkType(ClassTable *classtable, Environment *env) {
-  type = _BOTTOM_;
+  type = No_type;
   return type;
 }
 

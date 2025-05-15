@@ -32,7 +32,7 @@ private:
   bool checkInheritance(Classes classes);    // checks inheritance for a given class
   bool verifyParents(Classes classes);
   void mapEnvironments();
-  void doTypeCheck();
+  void doTypeCheck(Classes classes);
   std::vector<Symbol> topSortClasses();
   std::vector<Symbol> topSortedClasses {};
 
