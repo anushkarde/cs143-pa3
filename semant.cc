@@ -850,7 +850,7 @@ Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
   if (identifier == self) {
     classtable->semant_error(curFile, this) << "\'self\' cannot be bound in a \'let\' expression." << endl;
   }
-  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end()) {
+  if (classtable->classEnvTable.find(type_decl) == classtable->classEnvTable.end() && type_decl != SELF_TYPE) {
     classtable->semant_error(curFile, this) << "Class " << type_decl->get_string() << " of let-bound identifier " << identifier->get_string() << " is undefined." << endl;
   }
   attribTable.addid(identifier, new Symbol(type_decl));

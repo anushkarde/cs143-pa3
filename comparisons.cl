@@ -20,7 +20,6 @@ class A {
             y = 3;      --this is okay
             x = "poop"; --this is okay
             y = w;
-
         }
     };
 };
