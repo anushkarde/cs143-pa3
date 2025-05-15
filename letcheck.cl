@@ -1,9 +1,13 @@
 class A {
-    func(x: Int): Int {
-        let x: B <- self, x: Int <- 3 in x+1
+    a: B;
+    func(x: Int): Bool {
+        {
+            a <- (new B);
+            a.fuck();
+        }
     };
 };
 
-class Main {
+class Main inherits A {
     main(): Int {1};
 };
