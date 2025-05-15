@@ -754,7 +754,7 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
   }
   if (wrongParamTypes == false) {
     if (callerMethod.get_return_type() == SELF_TYPE) {
-    type = origCallerType;
+      type = origCallerType;
     } else {
       type = callerMethod.get_return_type();
     }
@@ -811,6 +811,7 @@ Symbol branch_class::checkCaseType(ClassTable *classtable, Environment *env) {
 Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol firstType = expr->checkType(classtable, env);
+  Symbol retType;
   std::set<Symbol> branchTypes;
   /** iterate over cases and check types for each case */
   for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
@@ -822,9 +823,12 @@ Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
     } else {
       branchTypes.insert(decl_type);
     }
-    firstType = classtable->leastCommonAncestor(curCaseType, firstType, env->getCurrentClass());
+    if (i == 0) { retType = curCaseType; 
+    } else {
+      retType = classtable->leastCommonAncestor(curCaseType, retType, env->getCurrentClass());
+    }
   }
-  type = firstType;
+  type = retType;
   return type;
 }
 
