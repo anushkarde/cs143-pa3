@@ -38,7 +38,7 @@ private:
 
 public:
   ClassTable(Classes);
-  Symbol leastCommonAncestor(Symbol type1, Symbol type2);
+  Symbol leastCommonAncestor(Symbol type1, Symbol type2, Symbol selfTypeClass);
   std::map<Symbol, Environment*> classEnvTable {};
   int errors() { return semant_errors; }
   std::ostream& semant_error();

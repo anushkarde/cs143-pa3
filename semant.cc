@@ -279,10 +279,17 @@ void ClassTable::mapEnvironments() {
 /**
   Returns the least common ancestor of two classes.
  */
-Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2) {
+Symbol ClassTable::leastCommonAncestor(Symbol type1, Symbol type2, Symbol selfTypeClass) {
   if (type1 == type2) { return type1; }
   if (type1 == _BOTTOM_) { return type2; }
   if (type2 == _BOTTOM_) { return type2; }
+
+  if (type1 == SELF_TYPE) {
+  type1 = selfTypeClass;
+  }
+  if (type2 == SELF_TYPE) {
+    type2 = selfTypeClass;
+  }
 
   std::set<Symbol> ancestors;
   Class_ curr = classNameMap[type1];
@@ -545,7 +552,7 @@ void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   if (expr_type == No_type) {
     return;
   }
-  if (classtable->leastCommonAncestor(expr_type, declared_type) != declared_type) {
+  if (classtable->leastCommonAncestor(expr_type, declared_type, env->getCurrentClass()) != declared_type) {
     classtable->semant_error() << "Inferred type of " << expr_type->get_string() << " of initialization of attribute " << name->get_string() << " does not conform to declared type " << declared_type->get_string() << "." << endl;
   }
   attribTable.exitscope();
@@ -572,10 +579,10 @@ void method_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   }
   Symbol inferType = expr->checkType(classtable, env);
   Symbol decl_ret_type = return_type;
-  if (return_type == SELF_TYPE) { decl_ret_type = env->getCurrentClass(); }
+  // if (return_type == SELF_TYPE) { decl_ret_type = env->getCurrentClass(); }
   if (classtable->classEnvTable.find(decl_ret_type) == classtable->classEnvTable.end()) { 
     classtable->semant_error() << "Undefined return type " << return_type->get_string() << " in method " << name->get_string() << "." << endl;
-  } else if (classtable->leastCommonAncestor(inferType, decl_ret_type) != decl_ret_type) {
+  } else if (classtable->leastCommonAncestor(inferType, decl_ret_type, env->getCurrentClass()) != decl_ret_type) {
     classtable->semant_error() << "Inferred return type " << inferType->get_string() << " of method " << name->get_string() << " does not conform to declared return type " << return_type->get_string() << endl;
   }
   attribTable.exitscope();
@@ -589,7 +596,7 @@ Symbol assign_class::checkType(ClassTable *classtable, Environment *env) {
     classtable->semant_error() << "Assignment to undeclared variable " << name->get_string() << "." << endl;
     type = _BOTTOM_;
   } else {
-    if (classtable->leastCommonAncestor(inferType, *(curAttribTable.lookup(name))) == *(curAttribTable.lookup(name))) {
+    if (classtable->leastCommonAncestor(inferType, *(curAttribTable.lookup(name)), env->getCurrentClass()) == *(curAttribTable.lookup(name))) {
       type = inferType;
     } else {
       classtable->semant_error() << "Type " << inferType->get_string() << " of assigned expression does not conform to declared type " << (*(curAttribTable.lookup(name)))->get_string() << " of identifier " << name->get_string() << "." << endl;
@@ -621,7 +628,7 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
   
   /** if the method we are trying to call is not one we inherit, throw error */
   Symbol parentType = type_name;
-  if (classtable->leastCommonAncestor(parentType, callerType) !=  parentType) {
+  if (classtable->leastCommonAncestor(parentType, callerType, env->getCurrentClass()) !=  parentType) {
     classtable->semant_error() << "Expression type " << callerType->get_string() << "does not conform to declared static dispatch type " << parentType->get_string() << "." << endl;
     type = _BOTTOM_;
     return type;
@@ -645,7 +652,7 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
       for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
         Formal form = forms->nth(i);
         Symbol form_type = forms->nth(i)->get_type();
-        if (classtable->leastCommonAncestor(form_type, paramTypes[i]) != form_type) {
+        if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
           classtable->semant_error() << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
           type = _BOTTOM_;
           error_found = true;
@@ -704,7 +711,7 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
       for (int i = forms->first(); forms->more(i); i = forms->next(i)) {
         Formal form = forms->nth(i);
         Symbol form_type = forms->nth(i)->get_type();
-        if (classtable->leastCommonAncestor(form_type, paramTypes[i]) != form_type) {
+        if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
           classtable->semant_error() << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
           type = _BOTTOM_;
           error_found = true;
@@ -732,7 +739,7 @@ Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
     if (type_e2 == No_type) {
       type = type_e1;
     } else {
-      type = classtable->leastCommonAncestor(type_e1, type_e2);
+      type = classtable->leastCommonAncestor(type_e1, type_e2, env->getCurrentClass());
     }
   }
   return type;
@@ -772,7 +779,7 @@ Symbol typcase_class::checkType(ClassTable *classtable, Environment *env) {
     } else {
       branchTypes.insert(decl_type);
     }
-    firstType = classtable->leastCommonAncestor(curCaseType, firstType);
+    firstType = classtable->leastCommonAncestor(curCaseType, firstType, env->getCurrentClass());
   }
   type = firstType;
   return type;
@@ -795,10 +802,10 @@ Symbol let_class::checkType(ClassTable *classtable, Environment *env) {
   attribTable.addid(identifier, &type_decl);
   Symbol lcaCheck = type_decl;
   if (e1Type != No_type) {
-    if (type_decl == SELF_TYPE) {
-      lcaCheck = env->getCurrentClass();
-    }
-    if (classtable->leastCommonAncestor(e1Type, lcaCheck) != lcaCheck) {
+    // if (type_decl == SELF_TYPE) {
+    //   lcaCheck = env->getCurrentClass();
+    // }
+    if (classtable->leastCommonAncestor(e1Type, lcaCheck, env->getCurrentClass()) != lcaCheck) {
       classtable->semant_error() << "Inferred type " << e1Type->get_string() << " of initialization of " << identifier->get_string() << " does not conform to identifier\'s declared type " << type_decl->get_string() << "." << endl;
     }
   }

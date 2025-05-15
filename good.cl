@@ -13,7 +13,7 @@ class C {
 class E {
 	a: Int;
 	quick(x: Int, y: Int) : Bool {
-		true
+		while "ehllo" loop true pool
 	};
 };
 
