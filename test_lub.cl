@@ -9,5 +9,5 @@ class C inherits A {
 };
 
 class Main inherits A {
-    main(x: D, x: E): Int { x<-3 };
+    main(x: D, x: E): Int { true };
 };
