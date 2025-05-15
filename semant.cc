@@ -768,11 +768,10 @@ Symbol cond_class::checkType(ClassTable *classtable, Environment *env) {
   /** throw error if the predicate is not a boolean */
   if (pred->checkType(classtable, env) != Bool) {
     classtable->semant_error(curFile, this) << "Predicate of \'if\' does not have type Bool." << endl;
-  } else {
-    Symbol type_e1 = then_exp->checkType(classtable, env);
-    Symbol type_e2 = else_exp->checkType(classtable, env);
-    type = classtable->leastCommonAncestor(type_e1, type_e2, env->getCurrentClass());
   }
+  Symbol type_e1 = then_exp->checkType(classtable, env);
+  Symbol type_e2 = else_exp->checkType(classtable, env);
+  type = classtable->leastCommonAncestor(type_e1, type_e2, env->getCurrentClass());
   return type;
 }
 

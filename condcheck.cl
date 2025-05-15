@@ -1,6 +1,6 @@
 class A {
     func(x: Int): Int {
-        let x: B <- self, x: Int <- 3 in x+1
+        if x then (new SELF_TYPE) else x fi
     };
 };
 
