@@ -718,7 +718,7 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
   /** if the caller type doesn't exist throw an error */
   if (classtable->classEnvTable.find(callerType) == classtable->classEnvTable.end()) {
     if (callerType == _BOTTOM_) {
-      classtable->semant_error(curFile, this) << "Dispatch on type " << callerType->get_string() << "not allowed. The type _bottom is the type of throw expressions." << endl;
+      classtable->semant_error(curFile, this) << "Dispatch on type " << callerType->get_string() << " not allowed. The type _bottom is the type of throw expressions." << endl;
     } else {
       classtable->semant_error(curFile, this) << "Dispatch on undefined class " << callerType->get_string() << "." << endl;
     }
@@ -868,10 +868,8 @@ Symbol plus_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
-  if (e1_type == Int && e2_type == Int) {
-    type = Int;
-  } else {
-    type = _BOTTOM_;
+  type = Int;
+  if (!(e1_type == Int && e2_type == Int)) {
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " + " << e2_type->get_string() << endl;
   }
   return type;
@@ -882,10 +880,8 @@ Symbol sub_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
-  if (e1_type == Int && e2_type == Int) {
-    type = Int;
-  } else {
-    type = _BOTTOM_;
+  type = Int;
+  if (!(e1_type == Int && e2_type == Int)) {
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " - " << e2_type->get_string() << endl;
   }
   return type;
@@ -896,10 +892,8 @@ Symbol mul_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
-  if (e1_type == Int && e2_type == Int) {
-    type = Int;
-  } else {
-    type = _BOTTOM_;
+  type = Int;
+  if (!(e1_type == Int && e2_type == Int)) {
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " * " << e2_type->get_string() << endl;
   }
   return type;
@@ -910,10 +904,8 @@ Symbol divide_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
-  if (e1_type == Int && e2_type == Int) {
-    type = Int;
-  } else {
-    type = _BOTTOM_;
+  type = Int;
+  if (!(e1_type == Int && e2_type == Int)) {
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " / " << e2_type->get_string() << endl;
   }
   return type;
@@ -923,10 +915,8 @@ Symbol divide_class::checkType(ClassTable *classtable, Environment *env) {
 Symbol neg_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
-  if (e1_type == Int) {
-    type = Int;
-  } else {
-    type = _BOTTOM_;
+  type = Int;
+  if (e1_type != Int) {
     classtable->semant_error(curFile, this) << "Argument of \'~\' has type " << e1_type->get_string() << " instead of Int." << endl;
   }
   return type;
@@ -937,11 +927,9 @@ Symbol lt_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
+  type = Bool;
   if (e1_type != Int || e2_type != Int) {
-    type = _BOTTOM_;
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " < " << e2_type->get_string() << endl;
-  } else {
-    type = Bool;
   }
   return type;
 }
@@ -951,15 +939,11 @@ Symbol eq_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
+  type = Bool;
   if (e1_type == Int || e2_type == Int || e1_type == Str || e2_type == Str || e1_type == Bool || e2_type == Bool) {
-    if (e1_type == e2_type) {
-      type = Bool;
-    } else {
+    if (e1_type != e2_type) {
       classtable->semant_error(curFile, this) << "Illegal comparison with a basic type." << endl;
-      type = _BOTTOM_;
     }
-  } else {
-    type = Bool;
   }
   return type;
 }
@@ -970,11 +954,9 @@ Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol e1_type = e1->checkType(classtable, env);
   Symbol e2_type = e2->checkType(classtable, env);
+  type = Bool;
   if (e1_type != Int || e2_type != Int) {
-    type = _BOTTOM_;
     classtable->semant_error(curFile, this) << "non-Int arguments: " << e1_type->get_string() << " <= " << e2_type->get_string() << endl;
-  } else {
-    type = Bool;
   }
   return type;
 }
@@ -983,10 +965,8 @@ Symbol leq_class::checkType(ClassTable *classtable, Environment *env) {
 Symbol comp_class::checkType(ClassTable *classtable, Environment *env) {
   Symbol curFile = classtable->classNameMap[env->getCurrentClass()]->get_filename();   // filename for calling errors
   Symbol expr_type = e1->checkType(classtable, env);
-  if (expr_type == Bool) {
-    type = Bool;
-  } else {
-    type = _BOTTOM_;
+  type = Bool;
+  if (expr_type != Bool) {
     classtable->semant_error(curFile, this) << "Argument of \'not\' has type " << expr_type->get_string() << " instead of Bool." << endl;
   }
   return type;

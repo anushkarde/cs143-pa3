@@ -1,9 +1,11 @@
 class A {
-    func(x: Int): Int {
-        let x: B <- self, x: Int <- 3 in x+1
+    func(x: Int): Bool {
+        {
+            let x: Bool <- x+1, x:String <- true in true;
+        }
     };
 };
 
-class Main {
+class Main inherits A {
     main(): Int {1};
 };
