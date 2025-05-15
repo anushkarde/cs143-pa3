@@ -566,6 +566,9 @@ void method_class::checkFeatureType(ClassTable *classtable, Environment *env) {
   std::set<Symbol> paramNames = {};
   for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
     Formal f = formals->nth(i);
+    if (f->get_name() == self) {
+      classtable->semant_error() << "\'self\' cannot be the name of a formal parameter." << endl;
+    }
     if (paramNames.find(f->get_name()) != paramNames.end()) {
       classtable->semant_error() << "Formal parameter " << f->get_name()->get_string() << " is multiply defined." << endl;
     } else {
