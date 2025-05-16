@@ -559,7 +559,7 @@ void attr_class::checkFeatureType(ClassTable *classtable, Environment *env) {
     return;
   }
   if (classtable->leastCommonAncestor(expr_type, type_decl, env->getCurrentClass()) != type_decl) {
-    classtable->semant_error(curFile, this) << "Inferred type of " << expr_type->get_string() << " of initialization of attribute " << name->get_string() << " does not conform to declared type " << type_decl->get_string() << "." << endl;
+    classtable->semant_error(curFile, this) << "Inferred type " << expr_type->get_string() << " of initialization of attribute " << name->get_string() << " does not conform to declared type " << type_decl->get_string() << "." << endl;
   }
   attribTable.exitscope();
 }
@@ -642,7 +642,7 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
   }
   /** if the caller type doesn't exist throw an error */
   if (classtable->classEnvTable.find(callerType) == classtable->classEnvTable.end() && callerType != SELF_TYPE) {
-    classtable->semant_error(curFile, this) << "Static dispatch on type " << callerType->get_string() << "not allowed." << endl;
+    classtable->semant_error(curFile, this) << "Static dispatch on type " << callerType->get_string() << " not allowed." << endl;
     type = _BOTTOM_;
     return type;
   }
@@ -686,7 +686,7 @@ Symbol static_dispatch_class::checkType(ClassTable *classtable, Environment *env
     Formal form = forms->nth(i);
     Symbol form_type = forms->nth(i)->get_type();
     if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
-      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
+      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << "." << endl;
       type = _BOTTOM_;
       wrongParamTypes = true;
     }
@@ -748,7 +748,7 @@ Symbol dispatch_class::checkType(ClassTable *classtable, Environment *env) {
     Formal form = forms->nth(i);
     Symbol form_type = forms->nth(i)->get_type();
     if (classtable->leastCommonAncestor(form_type, paramTypes[i], env->getCurrentClass()) != form_type) {
-      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << endl;
+      classtable->semant_error(curFile, this) << "In call of method " << name->get_string() << ", type " << paramTypes[i]->get_string() << " of parameter " << form->get_name()->get_string() << " does not conform to declared type " << form_type->get_string() << "." << endl;
       type = _BOTTOM_;
       wrongParamTypes = true;
     }
@@ -1029,7 +1029,7 @@ Symbol object_class::checkType(ClassTable *classtable, Environment *env) {
   if (env->getAttribTable().lookup(name) != NULL) {
     type = *(env->getAttribTable().lookup(name));
   } else {
-    classtable->semant_error(curFile, this) << "Undeclared identifier " << name->get_string() << ".";
+    classtable->semant_error(curFile, this) << "Undeclared identifier " << name->get_string() << "." << endl;
   }
   return type;
 }

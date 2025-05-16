@@ -1,0 +1,1 @@
+class A{a:SELF_TYPE<-case 1 of x:SELF_TYPE=>x;esac;}; class Main{main():Int{1};};
