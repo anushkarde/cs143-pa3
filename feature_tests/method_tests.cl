@@ -16,11 +16,27 @@ class C {
 
 -- 4. Inherited methods must match arg count/types and return type
 class D {
-    ping(x: Int): Int { x };
+    ping(x: Int): Bool { x };
 };
 
+-- incompatible parameter type
 class E inherits D {
     ping(x: String): Bool { true };
+};
+
+-- incompatible number of parameters 
+class G inherits D {
+    ping(x: Int, s: String): Bool { true };
+};
+
+-- incompatible formal type 
+class I inherits D {
+    ping(s: String): Bool { true };
+};
+
+-- incompatible return type
+class H inherits D {
+    ping(x: Int): Int { 6 };
 };
 
 -- 5. Cannot use 'self' as a formal parameter name
